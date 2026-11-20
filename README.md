@@ -20,5 +20,9 @@ Blätter `Namen`, `Ergebnisse`, `aktueller Stand`, `bezahlt…`, `… L2` werden
 - Hochgeladen werden kann eine ganze Datei oder einzelne Arbeitsblätter (mehrere Dateien gleichzeitig). Gibt es die Halbserie schon, werden Mitspieler hinzugefügt bzw. überschrieben. Heißt das Blatt nur „Tabelle1“, wird der Name aus dem Dateinamen genommen.
 - Verwaltung → Mitglieder (nur Admins): neue Namen aus Uploads werden automatisch angelegt; Punkteübersicht je Mitglied und Halbserie. Nach Änderung der Regeln `firestore.rules` neu veröffentlichen (Sammlung `members`).
 
+## Veröffentlichen (automatisch)
+Jeder Push auf `main` baut und deployt Seite + Firestore-Regeln über `.github/workflows/deploy.yml`. Manuell: GitHub → Actions → Deploy → Run workflow.
+Einmalig nötig: GitHub-Repo → Settings → Secrets and variables → Actions, Secrets `FIREBASE_SERVICE_ACCOUNT` (JSON-Schlüssel eines Dienstkontos mit den Rollen „Firebase Admin“ und „Service Usage Consumer“) und die sechs `VITE_FIREBASE_*`-Werte aus `.env.example`.
+
 ## Tests
 `npm test` (Beispieldatei optional unter `fixtures/rueckrunde2526.xlsm`, nicht eingecheckt).
