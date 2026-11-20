@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
+    }
+
+    // Tabellen, Halbserien und Ergebnisse sind öffentlich lesbar, schreiben nur Admins.
+    match /rounds/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+      match /players/{p} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+    match /results/{jahr} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    // Jeder Angemeldete darf nur den eigenen Admin-Eintrag lesen; Einträge legt man in der Firebase-Konsole an.
+    match /admins/{email} {
+      allow get: if request.auth != null && request.auth.token.email.lower() == email;
+      allow list, write: if false;
+    }
+  }
+}
