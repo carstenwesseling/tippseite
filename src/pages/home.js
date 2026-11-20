@@ -1,11 +1,10 @@
 import { listRounds } from '../db.js';
-import { esc } from '../util.js';
-import { roundLabel } from '../halbserie.js';
+import { compareRounds } from '../halbserie.js';
+import { renderTable } from './table.js';
 
-export async function renderHome(app) {
-  const rounds = await listRounds();
-  app.innerHTML = '<h1>Halbserien</h1>' + (rounds.length
-    ? `<div class="rounds">${rounds.map((r) => `<a class="round" href="#/runde/${esc(r.id)}"><strong>${esc(roundLabel(r))}</strong>
-        <span class="muted">${r.playerCount} Mitspieler</span></a>`).join('')}</div>`
-    : '<div class="msg">Noch keine Halbserie hochgeladen. Die Verwaltung (Admin) kann Excel-Dateien hochladen.</div>');
+/** Startseite: die aktuelle Halbserie ist immer aufgeklappt; andere Halbserien wählt man im Dropdown. */
+export async function renderHome(app, session) {
+  const rounds = (await listRounds()).sort(compareRounds);
+  if (rounds.length) return renderTable(app, session, rounds[0].id);
+  app.innerHTML = '<h1>Halbserien</h1><div class="msg">Noch keine Halbserie hochgeladen. Die Verwaltung (Admin) kann Excel-Dateien hochladen.</div>';
 }

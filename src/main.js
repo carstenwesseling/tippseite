@@ -1,6 +1,6 @@
 import { configured, login, logout, onUser } from './firebase.js';
 import { checkAdmin } from './db.js';
-import { esc, $ } from './util.js';
+import { esc, $, enableSort } from './util.js';
 import { renderHome } from './pages/home.js';
 import { renderTable } from './pages/table.js';
 import { renderBestenliste } from './pages/bestenliste.js';
@@ -26,7 +26,8 @@ async function route() {
     else if (page === 'admin' && id === 'mitglied' && id2) await renderMember(app, session, decodeURIComponent(id2));
     else if (page === 'admin') await renderAdmin(app, session);
     else if (page === 'runde' && id) await renderTable(app, session, id);
-    else await renderHome(app);
+    else await renderHome(app, session);
+    enableSort(app);
   } catch (e) {
     console.error(e);
     app.innerHTML = `<div class="msg err">Fehler: ${esc(e.message)}</div>`;
