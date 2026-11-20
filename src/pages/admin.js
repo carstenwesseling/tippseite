@@ -1,18 +1,22 @@
 import { parseWorkbook } from '../excel.js';
 import { saveRound, deleteRound, listRounds, getSeasonMatches } from '../db.js';
+import { logout } from '../firebase.js';
 import { esc, $ } from '../util.js';
 
 export async function renderAdmin(app, session) {
-  if (!session.user) { app.innerHTML = '<div class="msg warn">Bitte oben mit Google anmelden.</div>'; return; }
+  if (!session.user) { app.innerHTML = '<div class="msg warn">Bitte oben rechts mit Google anmelden.</div>'; return; }
   if (!session.isAdmin) {
     app.innerHTML = `<div class="msg err">${esc(session.user.email)} ist nicht als Admin freigeschaltet.
-      Lege in Firestore ein Dokument <code>admins/${esc(session.user.email.toLowerCase())}</code> an.</div>`;
+      Lege in Firestore ein Dokument <code>admins/${esc(session.user.email.toLowerCase())}</code> an.</div>
+      <div class="row" style="margin-inline:max(16px,env(safe-area-inset-left,0px))"><button id="logout">Abmelden</button></div>`;
+    $('#logout').addEventListener('click', () => logout());
     return;
   }
   const rounds = await listRounds();
   const thisYear = new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1;
   app.innerHTML = `
     <h1>Verwaltung</h1>
+    <div class="row" style="margin-inline:max(16px,env(safe-area-inset-left,0px))"><span class="muted">${esc(session.user.email)}</span><button id="logout">Abmelden</button></div>
     <div class="card"><h3>Excel hochladen</h3>
       <div class="row">
         <input type="file" id="file" accept=".xlsx,.xlsm,.xls" />
@@ -27,6 +31,8 @@ export async function renderAdmin(app, session) {
         <button data-del="${esc(r.id)}">Löschen</button></div>`).join('') || '<span class="muted">Keine</span>'}
       <div class="row"><button id="refresh">Ergebnisse von OpenLigaDB jetzt aktualisieren</button><span id="refmsg" class="muted"></span></div>
     </div>`;
+
+  $('#logout').addEventListener('click', () => logout());
 
   let parsed = null;
   const preview = $('#preview');

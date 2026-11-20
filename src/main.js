@@ -10,6 +10,7 @@ export const session = { user: null, isAdmin: false };
 const app = $('#app');
 
 async function route() {
+  markNav();
   const [, page, id] = location.hash.split('/');
   if (!configured) {
     app.innerHTML = `<div class="card"><h2>Firebase nicht konfiguriert</h2>
@@ -29,11 +30,21 @@ async function route() {
 
 function renderUser() {
   const el = $('#user');
-  el.innerHTML = session.user
-    ? `${esc(session.user.displayName || session.user.email)}${session.isAdmin ? ' (Admin)' : ''} <button id="out">Abmelden</button>`
-    : '<button id="in">Mit Google anmelden</button>';
-  $('#out')?.addEventListener('click', () => logout());
-  $('#in')?.addEventListener('click', () => login().catch((e) => alert(e.message)));
+  const u = session.user;
+  if (!u) {
+    el.innerHTML = '<button class="linkbtn" id="in">Anmelden</button>';
+    $('#in').addEventListener('click', () => login().catch((e) => alert(e.message)));
+    return;
+  }
+  const name = u.displayName || u.email || '?';
+  const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+  el.innerHTML = `<a class="avatar" href="#/admin" title="${esc(name)}${session.isAdmin ? ' (Admin)' : ''}">${esc(initials)}</a>`;
+}
+
+function markNav() {
+  const admin = location.hash.startsWith('#/admin');
+  $('#nav-admin').toggleAttribute('aria-current', admin);
+  $('#nav-home').toggleAttribute('aria-current', !admin);
 }
 
 onUser(async (user) => {
