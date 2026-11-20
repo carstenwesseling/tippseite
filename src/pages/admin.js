@@ -7,10 +7,11 @@ import { esc, $ } from '../util.js';
 
 /** Zugriffsschutz für alle Verwaltungsseiten. Gibt true zurück, wenn der Nutzer Admin ist. */
 export function adminGate(app, session) {
-  if (!session.user) { app.innerHTML = '<div class="msg warn">Bitte oben mit Google anmelden.</div>'; return false; }
+  if (!session.user) { app.innerHTML = '<div class="msg warn">Bitte oben rechts mit Google anmelden.</div>'; return false; }
   if (!session.isAdmin) {
     app.innerHTML = `<div class="msg err">${esc(session.user.email)} ist nicht als Admin freigeschaltet.
-      Lege in Firestore ein Dokument <code>admins/${esc(session.user.email.toLowerCase())}</code> an.</div>`;
+      Lege in Firestore ein Dokument <code>admins/${esc(session.user.email.toLowerCase())}</code> an.</div>
+      <div class="row" style="margin-inline:max(16px,env(safe-area-inset-left,0px))"><button data-logout>Abmelden</button></div>`;
     return false;
   }
   return true;
@@ -18,7 +19,8 @@ export function adminGate(app, session) {
 
 export const adminNav = (active) => `<h1>Verwaltung</h1>
   <nav class="tabs"><a href="#/admin" class="${active === 'upload' ? 'active' : ''}">Halbserien &amp; Upload</a>
-  <a href="#/admin/mitglieder" class="${active === 'members' ? 'active' : ''}">Mitglieder</a></nav>`;
+  <a href="#/admin/mitglieder" class="${active === 'members' ? 'active' : ''}">Mitglieder</a>
+  <button class="linkbtn" data-logout>Abmelden</button></nav>`;
 
 export async function renderAdmin(app, session, flash = '') {
   if (!adminGate(app, session)) return;
