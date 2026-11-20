@@ -1,6 +1,7 @@
 import { getRound, getSeasonMatches, listRounds } from '../db.js';
 import { buildTable } from '../scoring.js';
 import { esc, $ } from '../util.js';
+import { roundLabel, compareRounds } from '../halbserie.js';
 
 /** Ergebnisse + Spieltage einer Halbserie aus API-Spielen ableiten (Fallback: Ergebnisse aus der Excel-Datei). */
 export function resolveResults(round, apiMatches) {
@@ -54,7 +55,7 @@ export async function renderTable(app, session, id) {
     ? `Stand ${stand} · ${results.length} Spiele · Spieltag ${lastPlayed} von ${Math.max(...spieltage)}`
     : `Stand ${stand} · noch keine Ergebnisse`;
 
-  const options = (rounds.length ? rounds : [round]).map((r) => `<option value="${esc(r.id)}"${r.id === id ? ' selected' : ''}>${esc(r.title)}</option>`).join('');
+  const options = [...(rounds.length ? rounds : [round])].sort(compareRounds).map((r) => `<option value="${esc(r.id)}"${r.id === id ? ' selected' : ''}>${esc(roundLabel(r))}</option>`).join('');
 
   const tableHtml = `<table><thead><tr><th class="c1">#</th><th class="c2">Name</th>${spieltage.map((d) => `<th class="day">${d}</th>`).join('')}
     <th class="stat sep">2er</th><th class="stat">1er</th><th class="ct">Pkt</th></tr></thead><tbody>${table.map((r) => `

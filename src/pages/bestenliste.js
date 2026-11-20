@@ -2,6 +2,7 @@ import { getRound, getSeasonMatches, listRounds } from '../db.js';
 import { buildTable } from '../scoring.js';
 import { resolveResults } from './table.js';
 import { esc } from '../util.js';
+import { normName } from '../halbserie.js';
 
 const fmt = (n) => n.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -19,7 +20,7 @@ export async function renderBestenliste(app, session) {
     const api = await loadSeason(round.jahr);
     const { spieltage, results } = resolveResults(round, api?.matches);
     for (const row of buildTable(round.players, results, spieltage)) {
-      const k = row.name.trim().toLowerCase();
+      const k = normName(row.name);
       const a = agg.get(k) ?? { name: row.name, total: 0, teilnahmen: 0 };
       a.total += row.total;
       a.teilnahmen += 1;
