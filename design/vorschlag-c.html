@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Vorschlag C: Matchday</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: App-Gefühl. Fußzeilen-Navigation am Daumen (Desktop: oben), zwei Ansichten per Umschalter: Rangliste (Form-Punkte) und Matrix (Heatmap aller Spieltage). */
+:root {
+  --bg: #ffffff; --ink: #0f1115; --muted: #6b7280; --line: #e7e9ee; --soft: #f5f6f8;
+  --flag: #ff4b1f; --flag-ink: #ffffff; --heat: 255 75 31;
+  --text: 'DM Sans', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1115; --ink: #f2f3f5; --muted: #8b93a1; --line: #23262d; --soft: #181b21; --flag: #ff6a3d; --flag-ink: #1a0800; --heat: 255 106 61; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #0f1115; --ink: #f2f3f5; --muted: #8b93a1; --line: #23262d; --soft: #181b21; --flag: #ff6a3d; --flag-ink: #1a0800; --heat: 255 106 61; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14px/1.4 var(--text); -webkit-text-size-adjust: 100%; padding-bottom: 64px; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--flag); outline-offset: 2px; }
+.gut { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+header { max-width: 900px; margin: 0 auto; padding-block: 14px 10px; display: flex; align-items: center; gap: 12px; }
+.round { flex: 1; min-width: 0; }
+.round select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--ink); font: 700 20px/1.2 var(--text); padding: 0 18px 0 0; max-width: 100%; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--flag) 50%), linear-gradient(135deg, var(--flag) 50%, transparent 50%); background-size: 5px 5px; background-position: calc(100% - 6px) 55%, calc(100% - 1px) 55%; background-repeat: no-repeat; }
+.sub { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+.seg { display: inline-flex; background: var(--soft); border-radius: 8px; padding: 3px; flex: none; }
+.seg button { padding: 6px 12px; border-radius: 6px; font-weight: 500; font-size: 13px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--bg); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+
+nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; background: var(--bg); border-top: 1px solid var(--line); padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+nav a { flex: 1; display: grid; justify-items: center; gap: 2px; font-size: 11px; font-weight: 500; color: var(--muted); padding: 4px 0; }
+nav a svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+nav a[aria-current] { color: var(--flag); }
+
+main { max-width: 900px; margin: 0 auto; }
+.view[hidden] { display: none; }
+
+/* Rangliste */
+.lrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto 52px; align-items: center; gap: 10px; min-height: 52px; border-top: 1px solid var(--line); }
+.lrow.me { background: var(--soft); }
+.lh { min-height: 30px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; font-weight: 500; border-top: 0; }
+.r { font: 700 15px/1 var(--mono); color: var(--muted); text-align: right; }
+.r.t { color: var(--flag); }
+.who { font-weight: 500; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who small { display: block; font: 500 11px/1.3 var(--mono); color: var(--muted); }
+.form { display: flex; gap: 4px; }
+.form i { width: 9px; height: 22px; border-radius: 2px; background: rgb(var(--heat) / var(--a)); border: 1px solid rgb(var(--heat) / .35); }
+.form i.n { background: none; border: 1px dashed var(--line); }
+.tot { font: 700 22px/1 var(--mono); text-align: right; }
+.lh .tot, .lh .form { font: 500 11px/1 var(--text); }
+@media (max-width: 420px) { .form i { width: 7px; } .form { gap: 3px; } }
+
+/* Matrix */
+.mwrap { overflow: auto; max-height: calc(100dvh - 150px); border-top: 1px solid var(--line); }
+table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+th, td { height: 38px; padding: 0; text-align: center; font: 500 12.5px/1 var(--mono); border-bottom: 1px solid var(--bg); border-right: 1px solid var(--bg); }
+thead th { position: sticky; top: 0; z-index: 3; background: var(--bg); color: var(--muted); font-size: 11px; height: 30px; }
+.cn { position: sticky; left: 0; z-index: 2; background: var(--bg); text-align: left; padding: 0 10px 0 0; min-width: 96px; font: 500 14px/1 var(--text); white-space: nowrap; }
+.cn .r { display: inline-block; width: 24px; padding-right: 8px; font-size: 12px; }
+thead .cn { z-index: 4; }
+.cell { min-width: 36px; background: rgb(var(--heat) / var(--a)); color: var(--ink); }
+.cell.e { background: var(--soft); color: var(--muted); }
+.cell.hi { color: var(--flag-ink); font-weight: 700; }
+.ctot { position: sticky; right: 0; z-index: 2; background: var(--bg); min-width: 52px; font-weight: 700; font-size: 14px; box-shadow: -1px 0 0 var(--line); }
+tr.me .cn, tr.me .ctot { background: var(--soft); }
+.legend { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; padding-block: 8px; }
+.legend span { width: 80px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, rgb(var(--heat) / .06), rgb(var(--heat) / .95)); }
+
+@media (min-width: 760px) {
+  body { padding-bottom: 0; }
+  nav { position: static; border: 0; padding: 0; background: none; width: auto; gap: 18px; order: 3; }
+  nav a { display: flex; font-size: 13px; padding: 0; } nav a svg { display: none; }
+  header { display: flex; }
+  .lrow { grid-template-columns: 36px minmax(0, 1fr) 220px 60px; }
+  .form i { width: 11px; }
+}
+</style>
+</head>
+<body>
+<div class="gut"><header>
+  <div class="round"><select id="round" aria-label="Halbserie wählen"></select><div class="sub" id="sub"></div></div>
+  <div class="seg" role="group" aria-label="Ansicht"><button data-v="rang" aria-pressed="true">Rang</button><button data-v="matrix" aria-pressed="false">Spieltage</button></div>
+  <nav aria-label="Hauptmenü">
+    <a href="#" aria-current="page"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Tabelle</a>
+    <a href="#"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg>Halbserien</a>
+    <a href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1-4 4-6 8-6s7 2 8 6"/></svg>Verwaltung</a>
+  </nav>
+</header></div>
+<main>
+  <section class="view" id="rang" aria-label="Rangliste"></section>
+  <section class="view" id="matrix" aria-label="Alle Spieltage" hidden>
+    <div class="mwrap" tabindex="0"><table id="t"></table></div>
+    <div class="gut legend">0 <span></span> <b class="num"></b></div>
+  </section>
+</main>
+<script src="data.js"></script>
+<script>
+const T = window.TIPP, esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const a = (v) => (0.06 + 0.89 * v / T.max).toFixed(2);
+document.getElementById('round').innerHTML = T.rounds.map((r) => `<option>${r}</option>`).join('');
+document.getElementById('sub').textContent = `Stand ${T.stand.slice(0,6)} · ST ${T.first + T.played - 1}`;
+document.querySelector('.legend b').textContent = T.max + ' Pkt';
+
+const last = T.players[0].perDay.map((_, d) => d).filter((d) => d < T.played).slice(-6);
+document.getElementById('rang').innerHTML =
+  `<div class="gut lrow lh"><span></span><span>Name</span><span class="form">Letzte 6 Spieltage</span><span class="tot">Pkt</span></div>` +
+  T.players.map((p) => `<div class="gut lrow ${p.name === T.me ? 'me' : ''}">
+    <span class="r ${p.rank <= 3 ? 't' : ''}">${p.rank}</span>
+    <span class="who">${esc(p.name)}<small>${p.zwei}×2 · ${p.eins}×1 · Ø ${p.schnitt.toFixed(1)}</small></span>
+    <span class="form" aria-hidden="true">${last.map((d) => `<i style="--a:${a(p.perDay[d])}" title="Spieltag ${T.days[d]}: ${p.perDay[d]}"></i>`).join('')}</span>
+    <span class="tot">${p.total}</span></div>`).join('');
+
+document.getElementById('t').innerHTML =
+  `<thead><tr><th class="cn" style="padding-left:34px;text-align:left">Name</th>${T.days.map((d) => `<th>${d}</th>`).join('')}<th class="ctot">Pkt</th></tr></thead><tbody>` +
+  T.players.map((p) => `<tr class="${p.name === T.me ? 'me' : ''}"><td class="cn"><span class="r ${p.rank <= 3 ? 't' : ''}">${p.rank}</span>${esc(p.name)}</td>` +
+    p.perDay.map((v) => v == null ? '<td class="cell e">·</td>' : `<td class="cell ${v / T.max > .62 ? 'hi' : ''}" style="--a:${a(v)}">${v}</td>`).join('') +
+    `<td class="ctot">${p.total}</td></tr>`).join('') + '</tbody>';
+
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+  document.getElementById('rang').hidden = b.dataset.v !== 'rang';
+  document.getElementById('matrix').hidden = b.dataset.v !== 'matrix';
+}));
+</script>
+</body>
+</html>
