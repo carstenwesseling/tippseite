@@ -30,15 +30,38 @@ export async function renderMembers(app, session, flash = '') {
         <button id="sync">Aus allen Halbserien übernehmen</button>
       </div>
       <div class="muted">Neue Namen aus Excel-Uploads werden automatisch ergänzt. Zelle = Punkte (Rang) in der Halbserie.</div>
-      ${members.length ? `<div class="scroll"><table class="mat">
-        <thead><tr><th>Name</th>${overview.map((o) => `<th title="${esc(roundLabel(o.round))}"><a href="#/runde/${esc(o.round.id)}">${esc(roundCode(o.round))}</a></th>`).join('')}
-          <th>Halbserien</th><th>Punkte gesamt</th></tr></thead>
-        <tbody>${rows.map(({ m, cells, sum, count }) => `<tr>
-          <td><a href="${memberHref(m)}">${esc(m.name)}</a></td>
-          ${cells.map((c) => `<td>${c ? `${c.total} <span class="muted">(${c.rank}.)</span>` : '<span class="muted">–</span>'}</td>`).join('')}
-          <td>${count}</td><td class="total">${sum}</td></tr>`).join('')}</tbody>
-      </table></div>` : '<div class="msg">Noch keine Mitglieder. Lade eine Excel-Datei hoch oder übernimm sie aus vorhandenen Halbserien.</div>'}
+      <div id="matwrap">${members.length ? '' : '<div class="msg">Noch keine Mitglieder. Lade eine Excel-Datei hoch oder übernimm sie aus vorhandenen Halbserien.</div>'}</div>
     </div>`;
+
+  // Sortierbare Tabelle: Klick auf die Spaltenüberschrift sortiert, nochmaliger Klick kehrt die Richtung um.
+  const sort = { key: 'name', dir: 1 };
+  const value = (r, key) => (key === 'name' ? r.m.name : key === 'count' ? r.count : key === 'sum' ? r.sum : r.cells[key]?.total ?? null);
+  const drawTable = () => {
+    const sorted = [...rows].sort((a, b) => {
+      const va = value(a, sort.key);
+      const vb = value(b, sort.key);
+      if (va === null || vb === null) return (va === null) - (vb === null); // "–" immer ans Ende
+      const c = typeof va === 'string' ? va.localeCompare(vb, 'de') : va - vb;
+      return (c || a.m.name.localeCompare(b.m.name, 'de')) * (c ? sort.dir : 1);
+    });
+    const th = (key, html, title = '') => `<th class="sortable" data-sort="${key}" title="${esc(title)}">${html}${sort.key === String(key) ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+    $('#matwrap').innerHTML = `<div class="scroll"><table class="mat">
+      <thead><tr>${th('name', 'Name')}${overview.map((o, i) => th(i, esc(roundCode(o.round)), roundLabel(o.round))).join('')}
+        ${th('count', 'Halbserien')}${th('sum', 'Punkte gesamt')}</tr></thead>
+      <tbody>${sorted.map(({ m, cells, sum, count }) => `<tr>
+        <td><a href="${memberHref(m)}">${esc(m.name)}</a></td>
+        ${cells.map((c) => `<td>${c ? `${c.total} <span class="muted">(${c.rank}.)</span>` : '<span class="muted">–</span>'}</td>`).join('')}
+        <td>${count}</td><td class="total">${sum}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+    app.querySelectorAll('th[data-sort]').forEach((h) => h.addEventListener('click', () => {
+      const k = h.dataset.sort;
+      const key = k === 'name' || k === 'count' || k === 'sum' ? k : Number(k);
+      if (String(sort.key) === k) sort.dir = -sort.dir;
+      else { sort.key = key; sort.dir = key === 'name' ? 1 : -1; } // Zahlen zuerst absteigend (beste oben)
+      drawTable();
+    }));
+  };
+  if (members.length) drawTable();
 
   $('#add').addEventListener('click', async () => {
     const name = $('#newname').value.trim();
