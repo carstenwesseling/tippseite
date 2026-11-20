@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Vorschlag D: A + B</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: Look von A (hell, Rasengrün, schmale Kopfzeile). Unter dem kleinen Halbserien-Dropdown die Statistikzeile aus B, rechts der Ansichtsschalter Tabelle | Liste. */
+:root {
+  --bg: #f4f6f3; --surface: #ffffff; --ink: #101a14; --muted: #5d6b62; --line: #dfe5e0;
+  --pitch: #0b7a3f; --pitch-ink: #ffffff; --pitch-soft: #dff1e5; --me: #f0f7f2; --bar: #c4d6ca;
+  --card: #f7d117; --card-ink: #231c00;
+  --display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --text: Inter, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1310; --surface: #131b16; --ink: #eaf1ec; --muted: #93a39a; --line: #243029;
+  --pitch: #34c46c; --pitch-ink: #07140c; --pitch-soft: #173a25; --me: #17231c; --bar: #35503f; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0d1310; --surface: #131b16; --ink: #eaf1ec; --muted: #93a39a; --line: #243029;
+  --pitch: #34c46c; --pitch-ink: #07140c; --pitch-soft: #173a25; --me: #17231c; --bar: #35503f; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14px/1.4 var(--text); -webkit-text-size-adjust: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+:focus-visible { outline: 2px solid var(--pitch); outline-offset: 2px; }
+.gut { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.bar { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: var(--surface); z-index: 30; }
+.bar-in { display: flex; align-items: center; gap: 14px; height: 48px; max-width: 1200px; margin: 0 auto; }
+.brand { font: 700 22px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.brand i { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, var(--ink) 0 22%, transparent 24%), var(--surface); border: 2px solid var(--ink); }
+nav { display: flex; gap: 14px; margin-left: auto; font-weight: 500; font-size: 13px; color: var(--muted); }
+nav a[aria-current] { color: var(--ink); box-shadow: 0 2px 0 var(--pitch); }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--pitch); color: var(--pitch-ink); font: 600 11px/28px var(--text); text-align: center; flex: none; }
+
+main { max-width: 1200px; margin: 0 auto; padding-block: 12px 40px; }
+.head { display: flex; align-items: end; justify-content: space-between; gap: 10px 16px; margin-bottom: 10px; }
+.hl { min-width: 0; }
+.title { position: relative; display: inline-flex; }
+.title select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--ink); cursor: pointer; padding: 0 18px 0 0; max-width: 100%;
+  font: 700 22px/1.15 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.title::after { content: ""; position: absolute; right: 3px; top: 50%; width: 6px; height: 6px; border-right: 2px solid var(--pitch); border-bottom: 2px solid var(--pitch); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+.meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px; flex: none; }
+.seg button { padding: 5px 11px; border-radius: 6px; font-weight: 500; font-size: 13px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--pitch); color: var(--pitch-ink); }
+.view[hidden] { display: none; }
+
+/* Ansicht Tabelle (A) */
+.wrap { overflow: auto; background: var(--surface); border-block: 1px solid var(--line); max-height: calc(100dvh - 150px); }
+@media (min-width: 1000px) { .wrap { border: 1px solid var(--line); border-radius: 6px; margin-inline: max(16px, env(safe-area-inset-left, 0px)); } }
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+th, td { padding: 0 8px; height: 40px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--line); background: var(--surface); }
+tbody tr:last-child td { border-bottom: 0; }
+thead th { position: sticky; top: 0; z-index: 3; height: 34px; font: 600 11px/1 var(--text); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+tr.me td { background: var(--me); }
+.c1, .c2, .ct { position: sticky; z-index: 2; }
+thead .c1, thead .c2, thead .ct { z-index: 4; }
+.c1 { left: 0; width: 34px; min-width: 34px; padding: 0 0 0 12px; text-align: left; }
+.c2 { left: 34px; min-width: 92px; text-align: left; font-weight: 500; padding-left: 6px; box-shadow: 1px 0 0 var(--line); }
+.ct { right: 0; min-width: 54px; font-weight: 700; font-size: 15px; box-shadow: -1px 0 0 var(--line); padding: 0 14px 0 10px; }
+.rk { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 4px; font: 700 15px/1 var(--display); color: var(--muted); margin-left: -4px; }
+.top .rk { background: var(--pitch); color: var(--pitch-ink); }
+.day { min-width: 38px; color: var(--muted); }
+.best { background: var(--pitch-soft); color: var(--ink); font-weight: 600; }
+.pend { color: var(--line); }
+.sep { box-shadow: -1px 0 0 var(--line); }
+.stat { min-width: 44px; }
+.hint { padding-block: 8px; color: var(--muted); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
+.hint i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--pitch-soft); border: 1px solid var(--pitch); vertical-align: -1px; margin-right: 5px; }
+
+/* Ansicht Liste (B) */
+.list { border-block: 1px solid var(--line); background: var(--surface); }
+.item { border-bottom: 1px solid var(--line); }
+.item:last-child { border-bottom: 0; }
+.item.me { background: var(--me); }
+.row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding-block: 9px; }
+.rank { font: 700 24px/1 var(--display); text-align: center; color: var(--muted); }
+.rank.lead { background: var(--card); color: var(--card-ink); border-radius: 3px; width: 26px; height: 32px; display: grid; place-items: center; transform: rotate(-4deg); margin-inline: auto; }
+.nm { font-weight: 600; font-size: 15px; }
+.track { display: block; height: 4px; border-radius: 2px; background: var(--line); margin-top: 7px; overflow: hidden; }
+.track i { display: block; height: 100%; background: var(--pitch); border-radius: 2px; }
+.pts { font: 700 30px/1 var(--display); font-variant-numeric: tabular-nums; text-align: right; min-width: 44px; }
+.spark, .nums { display: none; }
+.detail { display: none; padding: 0 0 14px 44px; }
+.item[data-open="true"] .detail { display: block; }
+.chart { display: flex; align-items: end; gap: 3px; height: 92px; }
+.chart div { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: end; align-items: center; height: 100%; font-size: 9px; color: var(--muted); }
+.chart b { display: block; width: 100%; background: var(--bar); border-radius: 2px 2px 0 0; margin-bottom: 3px; }
+.chart .best { background: none; font-weight: 400; }
+.chart .best b { background: var(--pitch); }
+.chart .none b { background: none; border-bottom: 1px dashed var(--line); height: 0 !important; }
+.chart span { color: var(--ink); font-size: 10px; font-weight: 600; margin-bottom: 2px; background: none; }
+.chart .none span { opacity: 0; }
+.days { display: flex; gap: 3px; font-size: 9px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.days div { flex: 1; text-align: center; }
+.facts { display: flex; gap: 22px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.facts b { display: block; font: 700 22px/1.1 var(--display); color: var(--ink); }
+@media (min-width: 760px) {
+  .list { border: 1px solid var(--line); border-radius: 6px; margin-inline: max(16px, env(safe-area-inset-left, 0px)); }
+  .row { grid-template-columns: 40px 140px minmax(0, 1fr) 190px 50px; gap: 16px; padding-inline: 12px; }
+  .track { display: none; }
+  .spark { display: flex; align-items: end; gap: 2px; height: 28px; }
+  .spark i { flex: 1; background: var(--bar); border-radius: 1px; min-height: 2px; }
+  .spark i.n { background: var(--line); min-height: 1px; }
+  .nums { display: flex; gap: 14px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; justify-content: end; }
+  .nums b { color: var(--ink); font-weight: 600; }
+  .detail { padding-left: 68px; padding-right: 12px; }
+}
+@media (max-width: 600px) { th, td { padding: 0 6px; } }
+</style>
+</head>
+<body>
+<header class="bar"><div class="gut"><div class="bar-in">
+  <a class="brand" href="#"><i></i>Tippspiel</a>
+  <nav><a href="#" aria-current="page">Halbserien</a><a href="#">Verwaltung</a></nav>
+  <span class="avatar" title="Carsten (Admin)">CW</span>
+</div></div></header>
+<main>
+  <div class="gut head">
+    <div class="hl">
+      <label class="title"><select id="round" aria-label="Halbserie wählen"></select></label>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="seg" role="group" aria-label="Ansicht"><button data-v="tabelle" aria-pressed="true">Tabelle</button><button data-v="liste" aria-pressed="false">Liste</button></div>
+  </div>
+  <section class="view" id="tabelle" aria-label="Tabelle">
+    <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar"><table id="t"></table></div>
+    <div class="gut hint"><span><i></i>Tagesbester</span><span>Seitlich wischen für alle Spieltage</span></div>
+  </section>
+  <section class="view" id="liste" aria-label="Liste" hidden><div class="list" id="list"></div></section>
+</main>
+<script src="data.js"></script>
+<script>
+const T = window.TIPP, esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+document.getElementById('round').innerHTML = T.rounds.map((r) => `<option>${r}</option>`).join('');
+document.getElementById('meta').textContent = `Stand ${T.stand} · ${T.matches} Spiele · Spieltag ${T.first + T.played - 1} von ${T.first + T.count - 1}`;
+
+/* Tabelle */
+document.getElementById('t').innerHTML =
+  `<thead><tr><th class="c1">#</th><th class="c2">Name</th>${T.days.map((d) => `<th class="day">${d}</th>`).join('')}
+  <th class="stat sep">2er</th><th class="stat">1er</th><th class="stat">Ø</th><th class="ct">Pkt</th></tr></thead><tbody>` +
+  T.players.map((p) => `<tr class="${p.rank <= 3 ? 'top' : ''} ${p.name === T.me ? 'me' : ''}">
+  <td class="c1"><span class="rk">${p.rank}</span></td><td class="c2">${esc(p.name)}</td>
+  ${p.perDay.map((v, d) => v == null ? '<td class="day pend">·</td>' : `<td class="day ${v === T.dayMax[d] ? 'best' : ''}">${v}</td>`).join('')}
+  <td class="stat sep">${p.zwei}</td><td class="stat">${p.eins}</td><td class="stat">${p.schnitt.toFixed(1)}</td><td class="ct">${p.total}</td></tr>`).join('') + '</tbody>';
+
+/* Liste */
+const lead = T.players[0].total;
+document.getElementById('list').innerHTML = T.players.map((p) => {
+  const chart = p.perDay.map((v, d) => v == null ? '<div class="none"><span>0</span><b></b></div>'
+    : `<div class="${v === T.dayMax[d] ? 'best' : ''}"><span>${v}</span><b style="height:${Math.max(3, v / T.max * 64)}px"></b></div>`).join('');
+  const spark = p.perDay.map((v) => v == null ? '<i class="n"></i>' : `<i style="height:${Math.max(2, v / T.max * 28)}px"></i>`).join('');
+  return `<div class="item ${p.name === T.me ? 'me' : ''}" data-open="false">
+    <button class="row gut" aria-expanded="false" style="padding-inline:max(16px,env(safe-area-inset-left,0px))">
+      <span class="rank ${p.rank === 1 ? 'lead' : ''}">${p.rank}</span>
+      <span><span class="nm">${esc(p.name)}</span><span class="track"><i style="width:${p.total / lead * 100}%"></i></span></span>
+      <span class="spark" aria-hidden="true">${spark}</span>
+      <span class="nums"><span><b>${p.zwei}</b> 2er</span><span><b>${p.eins}</b> 1er</span><span>Ø <b>${p.schnitt.toFixed(1)}</b></span></span>
+      <span class="pts">${p.total}</span>
+    </button>
+    <div class="detail gut"><div class="chart">${chart}</div>
+      <div class="days">${T.days.map((d) => `<div>${d}</div>`).join('')}</div>
+      <div class="facts"><span><b>${p.zwei}</b>exakt (2 Pkt)</span><span><b>${p.eins}</b>Tendenz (1 Pkt)</span><span><b>${p.schnitt.toFixed(1)}</b>Ø je Spieltag</span></div></div>
+  </div>`;
+}).join('');
+document.getElementById('list').addEventListener('click', (e) => {
+  const b = e.target.closest('.row'); if (!b) return;
+  const it = b.parentElement, open = it.dataset.open !== 'true';
+  it.dataset.open = open; b.setAttribute('aria-expanded', open);
+});
+
+/* Ansichtsschalter, Wahl wird pro Gerät gemerkt */
+function setView(v) {
+  document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', x.dataset.v === v));
+  document.getElementById('tabelle').hidden = v !== 'tabelle';
+  document.getElementById('liste').hidden = v !== 'liste';
+  try { localStorage.setItem('tipp-ansicht', v); } catch (e) {}
+}
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.v)));
+try { const v = localStorage.getItem('tipp-ansicht'); if (v === 'liste') setView(v); } catch (e) {}
+</script>
+</body>
+</html>
