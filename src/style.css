@@ -18,3 +18,7 @@ td.total { font-weight: 700; }
 button, input, select { font: inherit; padding: .4rem .7rem; }
 .row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin: .5rem 0; }
 .muted { color: #666; font-size: .85rem; }
+nav.tabs { display: flex; gap: 1rem; border-bottom: 1px solid #ddd; margin-bottom: 1rem; }
+nav.tabs a { padding: .4rem .2rem; border-bottom: 3px solid transparent; }
+nav.tabs a.active { border-bottom-color: #0b5ed7; font-weight: 600; }
+table.mat th:nth-child(2), table.mat td:nth-child(2) { text-align: right; }

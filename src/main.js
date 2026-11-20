@@ -4,13 +4,14 @@ import { esc, $ } from './util.js';
 import { renderHome } from './pages/home.js';
 import { renderTable } from './pages/table.js';
 import { renderAdmin } from './pages/admin.js';
+import { renderMembers, renderMember } from './pages/members.js';
 
 export const session = { user: null, isAdmin: false };
 
 const app = $('#app');
 
 async function route() {
-  const [, page, id] = location.hash.split('/');
+  const [, page, id, id2] = location.hash.split('/');
   if (!configured) {
     app.innerHTML = `<div class="card"><h2>Firebase nicht konfiguriert</h2>
       <p>Lege eine <code>.env</code> nach Vorlage <code>.env.example</code> an und starte neu.</p></div>`;
@@ -18,7 +19,9 @@ async function route() {
   }
   app.innerHTML = '<p class="muted">Lade …</p>';
   try {
-    if (page === 'admin') await renderAdmin(app, session);
+    if (page === 'admin' && id === 'mitglieder') await renderMembers(app, session);
+    else if (page === 'admin' && id === 'mitglied' && id2) await renderMember(app, session, decodeURIComponent(id2));
+    else if (page === 'admin') await renderAdmin(app, session);
     else if (page === 'runde' && id) await renderTable(app, session, id);
     else await renderHome(app);
   } catch (e) {

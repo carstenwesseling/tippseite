@@ -1,6 +1,7 @@
 import { getRound, getSeasonMatches } from '../db.js';
 import { buildTable } from '../scoring.js';
-import { esc, $ } from '../util.js';
+import { esc } from '../util.js';
+import { roundLabel } from '../halbserie.js';
 
 /** Ergebnisse + Spieltage einer Halbserie aus API-Spielen ableiten (Fallback: Ergebnisse aus der Excel-Datei). */
 export function resolveResults(round, apiMatches) {
@@ -35,7 +36,7 @@ export async function renderTable(app, session, id) {
   const table = buildTable(round.players, results, spieltage);
   const head = spieltage.map((d) => `<th>${d}</th>`).join('');
   app.innerHTML = `
-    <h1>${esc(round.title)}</h1>
+    <h1>${esc(roundLabel(round))}</h1>
     <p class="muted">${esc(info)} · Quelle: ${esc(source)} · ${results.length} gewertete Spiele</p>
     <div class="scroll"><table>
       <thead><tr><th>Rang</th><th>Name</th>${head}<th>Gesamt</th><th>2er</th><th>1er</th><th>Ø</th></tr></thead>

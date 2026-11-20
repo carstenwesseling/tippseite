@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { matchKey, isKnownTeam } from './teams.js';
+import { isGenericSheetName } from './halbserie.js';
 
 // Blätter, die keine Spielerblätter sind (Präfixe, Groß-/Kleinschreibung egal).
 const IGNORE_PREFIX = ['namen', 'ergebnisse', 'aktueller stand', 'bezahlt', 'ewige'];
@@ -61,8 +62,10 @@ export function isPlayerSheetName(name) {
 
 /**
  * @param {ArrayBuffer|Uint8Array} data Inhalt der .xlsx/.xlsm
+ * @param {{fallbackName?: string}} [opts] fallbackName: Spielername aus dem Dateinamen für Einzelblatt-Dateien,
+ *   deren Blatt nur "Tabelle1" o. ä. heißt.
  */
-export function parseWorkbook(data) {
+export function parseWorkbook(data, { fallbackName } = {}) {
   const wb = XLSX.read(data, { type: 'array', cellFormula: false });
   const players = [];
   const ignored = [];
@@ -103,9 +106,45 @@ export function parseWorkbook(data) {
     });
   }
 
+  if (players.length === 1 && fallbackName && isGenericSheetName(players[0].name)) players[0].name = fallbackName;
+
   if (!players.length) warnings.push('Keine Spielerblätter gefunden.');
   const counts = new Set(players.map((p) => p.matchCount));
   if (counts.size > 1) warnings.push(`Spielerblätter haben unterschiedlich viele Spiele: ${[...counts].join(', ')}`);
 
   return { players, ignored, warnings, order: order ?? [], excelResults };
+}
+
+/**
+ * Führt mehrere geparste Dateien (z. B. einzeln hochgeladene Arbeitsblätter) zu einem Ergebnis zusammen.
+ * Spielplan und Fallback-Ergebnisse kommen aus der ersten Datei, die sie enthält.
+ */
+export function mergeParsed(parts) {
+  const players = [];
+  const index = new Map();
+  const ignored = [];
+  const warnings = [];
+  let order = [];
+  let excelResults = null;
+  for (const part of parts) {
+    for (const p of part.players) {
+      if (index.has(p.name)) {
+        warnings.push(`Name "${p.name}" kommt mehrfach vor – die letzte Datei gilt.`);
+        players[index.get(p.name)] = p;
+      } else {
+        index.set(p.name, players.length);
+        players.push(p);
+      }
+    }
+    ignored.push(...part.ignored);
+    warnings.push(...part.warnings.filter((w) => !w.startsWith('Keine Spielerblätter') || !parts.some((q) => q.players.length)));
+    if (!order.length && part.order.length) order = part.order;
+    else if (order.length && part.order.length) {
+      const keys = new Set(order.map((o) => o.key));
+      const same = part.order.filter((o) => keys.has(o.key)).length / Math.max(order.length, part.order.length);
+      if (same < 0.8) warnings.push('Ein Blatt hat einen anderen Spielplan als die übrigen – bitte Halbserie prüfen.');
+    }
+    excelResults ??= part.excelResults;
+  }
+  return { players, ignored, warnings: [...new Set(warnings)], order, excelResults };
 }
