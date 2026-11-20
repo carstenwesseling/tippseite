@@ -1,0 +1,20 @@
+/* Bewusst schlicht – Design folgt in einem späteren Schritt. */
+:root { font-family: system-ui, sans-serif; color: #1a1a1a; }
+body { margin: 0; background: #f6f7f9; }
+header { display: flex; gap: 1.5rem; align-items: center; padding: .75rem 1.25rem; background: #fff; border-bottom: 1px solid #ddd; }
+header nav { display: flex; gap: 1rem; flex: 1; }
+a { color: #0b5ed7; text-decoration: none; }
+.brand { font-weight: 700; color: inherit; }
+main { padding: 1.25rem; max-width: 1400px; margin: 0 auto; }
+.card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+.msg { padding: .6rem .8rem; border-radius: 6px; margin: .5rem 0; background: #e8f0fe; }
+.msg.warn { background: #fff4d6; } .msg.err { background: #fde2e2; } .msg.ok { background: #e1f5e4; }
+table { border-collapse: collapse; background: #fff; font-size: .9rem; }
+th, td { border: 1px solid #ddd; padding: .3rem .5rem; text-align: right; }
+th:nth-child(1), td:nth-child(1), th:nth-child(2), td:nth-child(2) { text-align: left; }
+thead th { background: #f0f2f5; position: sticky; top: 0; }
+td.total { font-weight: 700; }
+.scroll { overflow: auto; max-height: 80vh; }
+button, input, select { font: inherit; padding: .4rem .7rem; }
+.row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin: .5rem 0; }
+.muted { color: #666; font-size: .85rem; }
