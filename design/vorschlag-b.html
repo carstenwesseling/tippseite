@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Vorschlag B: Spielfeld</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: grüner Rasen als Fläche, Rangliste als tippbare Zeilen. Tippen klappt die Spieltage als Balken auf; ab Desktop stehen Verlauf und Zahlen direkt in der Zeile. */
+:root {
+  --bg: #17653a; --row: #1c7344; --ink: #f6faf6; --muted: #b5d6c1; --line: #ffffff2e; --chalk: #ffffff;
+  --card: #f7d117; --card-ink: #231c00; --bar: #ffffff66; --bar-on: #ffffff;
+  --display: 'Big Shoulders Display', 'Arial Narrow', system-ui, sans-serif;
+  --text: Inter, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e2418; --row: #133021; --ink: #eef6f0; --muted: #8db39c; --line: #ffffff22; --bar: #ffffff40; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #0e2418; --row: #133021; --ink: #eef6f0; --muted: #8db39c; --line: #ffffff22; --bar: #ffffff40; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14px/1.4 var(--text); -webkit-text-size-adjust: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+:focus-visible { outline: 2px solid var(--card); outline-offset: 2px; }
+.gut { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.top { max-width: 980px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding-block: 12px; }
+.brand { font: 800 24px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
+nav { display: flex; gap: 14px; margin-left: auto; font-size: 13px; font-weight: 500; color: var(--muted); }
+nav a[aria-current] { color: var(--ink); }
+
+main { max-width: 980px; margin: 0 auto; padding-bottom: 48px; }
+.hero { padding-block: 6px 14px; }
+.tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-block: 2px 12px; }
+.tabs button { flex: none; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); font-size: 13px; font-weight: 500; }
+.tabs button[aria-pressed="true"] { background: var(--chalk); color: #12522f; border-color: var(--chalk); }
+h1 { margin: 0; font: 800 clamp(40px, 12vw, 64px)/.95 var(--display); text-transform: uppercase; letter-spacing: .005em; }
+.meta { color: var(--muted); font-size: 13px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+.list { border-top: 1px solid var(--line); }
+.item { border-bottom: 1px solid var(--line); }
+.item.me { background: var(--row); }
+.row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding-block: 11px; min-height: 56px; }
+.rank { font: 800 28px/1 var(--display); text-align: center; color: var(--muted); }
+.rank.lead { background: var(--card); color: var(--card-ink); border-radius: 3px; width: 28px; height: 34px; display: grid; place-items: center; transform: rotate(-4deg); margin-inline: auto; }
+.who { min-width: 0; }
+.nm { font-weight: 600; font-size: 16px; display: flex; gap: 8px; align-items: baseline; }
+.nm small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.track { height: 4px; border-radius: 2px; background: var(--line); margin-top: 7px; overflow: hidden; }
+.track i { display: block; height: 100%; background: var(--chalk); border-radius: 2px; }
+.pts { font: 800 34px/1 var(--display); font-variant-numeric: tabular-nums; text-align: right; min-width: 44px; }
+.spark, .nums { display: none; }
+
+.detail { padding-bottom: 16px; padding-left: 46px; display: none; }
+.item[data-open="true"] .detail { display: block; }
+.chart { display: flex; align-items: end; gap: 3px; height: 92px; }
+.chart div { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: end; align-items: center; height: 100%; font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chart b { display: block; width: 100%; background: var(--bar); border-radius: 2px 2px 0 0; margin-bottom: 3px; }
+.chart .best b { background: var(--bar-on); }
+.chart .none b { background: none; border-bottom: 1px dashed var(--line); height: 0 !important; }
+.chart span { color: var(--ink); font-size: 10px; font-weight: 600; margin-bottom: 2px; }
+.chart .none span { opacity: 0; }
+.days { display: flex; gap: 3px; font-size: 9px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.days div { flex: 1; text-align: center; }
+.facts { display: flex; gap: 22px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.facts b { display: block; font: 800 22px/1.1 var(--display); color: var(--ink); }
+
+@media (min-width: 760px) {
+  .row { grid-template-columns: 44px 150px minmax(0, 1fr) 150px 56px; gap: 16px; }
+  .track { display: none; }
+  .spark { display: flex; align-items: end; gap: 2px; height: 28px; }
+  .spark i { flex: 1; background: var(--bar); border-radius: 1px; min-height: 2px; }
+  .spark i.n { background: var(--line); min-height: 1px; }
+  .nums { display: flex; gap: 14px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; justify-content: end; }
+  .nums b { color: var(--ink); font-weight: 600; }
+  .detail { padding-left: 60px; }
+}
+</style>
+</head>
+<body>
+<div class="gut"><div class="top">
+  <a class="brand" href="#">Tippspiel</a>
+  <nav><a href="#" aria-current="page">Halbserien</a><a href="#">Verwaltung</a><span title="Carsten (Admin)">CW</span></nav>
+</div></div>
+<main class="gut">
+  <div class="hero">
+    <div class="tabs" id="tabs" role="group" aria-label="Halbserie"></div>
+    <h1 id="h1"></h1>
+    <div class="meta" id="meta"></div>
+  </div>
+  <div class="list" id="list"></div>
+</main>
+<script src="data.js"></script>
+<script>
+const T = window.TIPP, esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+document.getElementById('tabs').innerHTML = T.rounds.map((r, i) => `<button aria-pressed="${i === 0}">${r}</button>`).join('');
+document.getElementById('h1').textContent = T.title;
+document.getElementById('meta').textContent = `Stand ${T.stand} · ${T.matches} Spiele · Spieltag ${T.first + T.played - 1} von ${T.first + T.count - 1}`;
+const lead = T.players[0].total;
+document.getElementById('list').innerHTML = T.players.map((p, i) => {
+  const chart = p.perDay.map((v, d) => v == null ? `<div class="none"><span>0</span><b></b></div>`
+    : `<div class="${v === T.dayMax[d] ? 'best' : ''}"><span>${v}</span><b style="height:${Math.max(3, v / T.max * 64)}px"></b></div>`).join('');
+  const spark = p.perDay.map((v) => v == null ? '<i class="n"></i>' : `<i style="height:${Math.max(2, v / T.max * 28)}px"></i>`).join('');
+  return `<div class="item ${p.name === T.me ? 'me' : ''}" data-open="false">
+    <button class="row" aria-expanded="false">
+      <span class="rank ${p.rank === 1 ? 'lead' : ''}">${p.rank}</span>
+      <span class="who"><span class="nm">${esc(p.name)}</span><span class="track"><i style="width:${p.total / lead * 100}%"></i></span></span>
+      <span class="spark" aria-hidden="true">${spark}</span>
+      <span class="nums"><span><b>${p.zwei}</b> 2er</span><span><b>${p.eins}</b> 1er</span><span>Ø <b>${p.schnitt.toFixed(1)}</b></span></span>
+      <span class="pts">${p.total}</span>
+    </button>
+    <div class="detail"><div class="chart">${chart}</div>
+      <div class="days">${T.days.map((d) => `<div>${d}</div>`).join('')}</div>
+      <div class="facts"><span><b>${p.zwei}</b>exakt (2 Pkt)</span><span><b>${p.eins}</b>Tendenz (1 Pkt)</span><span><b>${p.schnitt.toFixed(1)}</b>Ø je Spieltag</span></div></div>
+  </div>`;
+}).join('');
+document.getElementById('list').addEventListener('click', (e) => {
+  const b = e.target.closest('.row'); if (!b) return;
+  const it = b.parentElement, open = it.dataset.open !== 'true';
+  it.dataset.open = open; b.setAttribute('aria-expanded', open);
+});
+document.querySelector('.item.me .row').click();
+</script>
+</body>
+</html>

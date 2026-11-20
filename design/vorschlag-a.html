@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Vorschlag A: Anstoß</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: schlanke Kopfzeile, volle Breite, Tabelle mit fixierten Spalten (Rang+Name links, Gesamt rechts), Spieltage scrollen. */
+:root {
+  --bg: #f4f6f3; --surface: #ffffff; --ink: #101a14; --muted: #5d6b62; --line: #dfe5e0;
+  --pitch: #0b7a3f; --pitch-ink: #ffffff; --pitch-soft: #dff1e5; --me: #f0f7f2;
+  --display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --text: Inter, system-ui, sans-serif;
+  --shadow: 0 0 0 1px var(--line);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1310; --surface: #131b16; --ink: #eaf1ec; --muted: #93a39a; --line: #243029;
+  --pitch: #34c46c; --pitch-ink: #07140c; --pitch-soft: #173a25; --me: #17231c; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0d1310; --surface: #131b16; --ink: #eaf1ec; --muted: #93a39a; --line: #243029;
+  --pitch: #34c46c; --pitch-ink: #07140c; --pitch-soft: #173a25; --me: #17231c; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14px/1.4 var(--text); -webkit-text-size-adjust: 100%; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--pitch); outline-offset: 2px; }
+
+.bar { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: var(--surface); z-index: 30; }
+.bar-in { display: flex; align-items: center; gap: 14px; height: 48px; max-width: 1200px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.brand { font: 700 22px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.brand i { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, var(--ink) 0 22%, transparent 24%), var(--surface); border: 2px solid var(--ink); }
+nav { display: flex; gap: 14px; margin-left: auto; font-weight: 500; font-size: 13px; color: var(--muted); }
+nav a[aria-current] { color: var(--ink); box-shadow: 0 2px 0 var(--pitch); }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--pitch); color: var(--pitch-ink); font: 600 11px/28px var(--text); text-align: center; flex: none; }
+
+main { max-width: 1200px; margin: 0 auto; padding-block: 14px 40px; }
+.head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 4px 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); margin-bottom: 10px; }
+.title { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.title select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--ink); cursor: pointer; padding: 0 22px 0 0;
+  font: 700 clamp(28px, 7vw, 40px)/1.05 var(--display); text-transform: uppercase; letter-spacing: .01em; }
+.title::after { content: ""; position: absolute; right: 4px; top: 50%; width: 7px; height: 7px; border-right: 2px solid var(--pitch); border-bottom: 2px solid var(--pitch); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+.meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.meta b { color: var(--ink); font-weight: 600; }
+
+.wrap { overflow: auto; background: var(--surface); border-block: 1px solid var(--line); max-height: calc(100dvh - 140px); }
+@media (min-width: 1000px) { .wrap { border: 1px solid var(--line); border-radius: 6px; margin-inline: max(16px, env(safe-area-inset-left, 0px)); } }
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+th, td { padding: 0 8px; height: 40px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--line); background: var(--surface); }
+tbody tr:last-child td { border-bottom: 0; }
+thead th { position: sticky; top: 0; z-index: 3; height: 34px; font: 600 11px/1 var(--text); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+tr.me td { background: var(--me); }
+.c1, .c2, .ct { position: sticky; z-index: 2; }
+thead .c1, thead .c2, thead .ct { z-index: 4; }
+.c1 { left: 0; width: 34px; min-width: 34px; padding: 0 0 0 12px; text-align: left; }
+.c2 { left: 34px; min-width: 92px; text-align: left; font-weight: 500; padding-left: 6px; box-shadow: 1px 0 0 var(--line); }
+.ct { right: 0; min-width: 54px; font-weight: 700; font-size: 15px; box-shadow: -1px 0 0 var(--line); padding: 0 14px 0 10px; }
+.rk { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 4px; font: 700 15px/1 var(--display); color: var(--muted); margin-left: -4px; }
+.top .rk { background: var(--pitch); color: var(--pitch-ink); }
+.day { min-width: 38px; color: var(--muted); }
+.best { background: var(--pitch-soft); color: var(--ink); font-weight: 600; }
+.pend { color: var(--line); }
+.sep { box-shadow: -1px 0 0 var(--line); }
+.stat { min-width: 44px; }
+.hint { padding: 8px max(16px, env(safe-area-inset-left, 0px)); color: var(--muted); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
+.hint i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--pitch-soft); border: 1px solid var(--pitch); vertical-align: -1px; margin-right: 5px; }
+@media (max-width: 600px) { th, td { padding: 0 6px; } .name-full { display: none; } }
+</style>
+</head>
+<body>
+<header class="bar"><div class="bar-in">
+  <a class="brand" href="#"><i></i>Tippspiel</a>
+  <nav><a href="#" aria-current="page">Halbserien</a><a href="#">Verwaltung</a></nav>
+  <span class="avatar" title="Carsten (Admin)">CW</span>
+</div></header>
+<main>
+  <div class="head">
+    <label class="title"><select id="round" aria-label="Halbserie wählen"></select></label>
+    <div class="meta" id="meta"></div>
+  </div>
+  <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar"><table id="t"></table></div>
+  <div class="hint"><span><i></i>Tagesbester</span><span>Seitlich wischen für alle Spieltage</span></div>
+</main>
+<script src="data.js"></script>
+<script>
+const T = window.TIPP, esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+document.getElementById('round').innerHTML = T.rounds.map((r) => `<option>${r}</option>`).join('');
+document.getElementById('meta').innerHTML = `Stand <b>${T.stand}</b> · ${T.matches} Spiele gewertet · Spieltag <b>${T.first + T.played - 1}</b>`;
+const head = `<thead><tr><th class="c1">#</th><th class="c2">Name</th>${T.days.map((d) => `<th class="day">${d}</th>`).join('')}
+  <th class="stat sep">2er</th><th class="stat">1er</th><th class="stat">Ø</th><th class="ct">Pkt</th></tr></thead>`;
+const body = T.players.map((p) => `<tr class="${p.rank <= 3 ? 'top' : ''} ${p.name === T.me ? 'me' : ''}">
+  <td class="c1"><span class="rk">${p.rank}</span></td><td class="c2">${esc(p.name)}</td>
+  ${p.perDay.map((v, d) => v == null ? '<td class="day pend">·</td>' : `<td class="day ${v === T.dayMax[d] ? 'best' : ''}">${v}</td>`).join('')}
+  <td class="stat sep">${p.zwei}</td><td class="stat">${p.eins}</td><td class="stat">${p.schnitt.toFixed(1)}</td><td class="ct">${p.total}</td></tr>`).join('');
+document.getElementById('t').innerHTML = head + `<tbody>${body}</tbody>`;
+</script>
+</body>
+</html>
