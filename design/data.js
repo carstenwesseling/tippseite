@@ -15,7 +15,7 @@
     }
     return { name, perDay, total, zwei, eins, schnitt: total / played };
   }).sort((a, b) => b.total - a.total || b.zwei - a.zwei);
-  players.forEach((p, i) => { const q = players[i - 1]; p.rank = q && q.total === p.total && q.zwei === p.zwei ? q.rank : i + 1; });
+  players.forEach((p, i) => { const q = players[i - 1]; p.rank = q && q.total === p.total ? q.rank : i + 1; });
   const dayMax = Array.from({ length: count }, (_, d) => Math.max(...players.map((p) => p.perDay[d] ?? -1)));
   window.TIPP = {
     title: 'Rückrunde 25/26', rounds: ['Rückrunde 25/26', 'Hinrunde 25/26', 'Rückrunde 24/25'],
