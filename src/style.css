@@ -22,3 +22,5 @@ nav.tabs { display: flex; gap: 1rem; border-bottom: 1px solid #ddd; margin-botto
 nav.tabs a { padding: .4rem .2rem; border-bottom: 3px solid transparent; }
 nav.tabs a.active { border-bottom-color: #0b5ed7; font-weight: 600; }
 table.mat th:nth-child(2), table.mat td:nth-child(2) { text-align: right; }
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { background: #e4e8ee; }
