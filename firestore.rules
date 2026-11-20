@@ -19,6 +19,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    // Mitgliederverwaltung: nur Admins.
+    match /members/{id} {
+      allow read, write: if isAdmin();
+    }
     // Jeder Angemeldete darf nur den eigenen Admin-Eintrag lesen; Einträge legt man in der Firebase-Konsole an.
     match /admins/{email} {
       allow get: if request.auth != null && request.auth.token.email.lower() == email;
