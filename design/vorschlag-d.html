@@ -86,10 +86,16 @@ thead .c1, thead .c2, thead .ct { z-index: 4; }
 .rank.lead { background: var(--card); color: var(--card-ink); border-radius: 3px; width: 26px; height: 32px; display: grid; place-items: center; transform: rotate(-4deg); margin-inline: auto; }
 .who { min-width: 0; }
 .nm { display: block; font-weight: 600; font-size: 16px; }
-.spark { display: flex; align-items: end; gap: 2px; height: 24px; margin-top: 6px; }
-.spark i { flex: 1; min-width: 0; background: var(--bar); border-radius: 1px 1px 0 0; min-height: 2px; }
-.spark i.b { background: var(--g-on); }
-.spark i.n { background: var(--line); min-height: 1px; }
+.spark { display: flex; align-items: end; gap: 2px; margin-top: 6px; }
+.sc { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: end; }
+.sc i { display: block; width: 100%; background: var(--bar); border-radius: 1px 1px 0 0; min-height: 2px; }
+.sc.b i { background: var(--g-on); }
+.sc.n i { background: var(--line); min-height: 1px; }
+.sc em { font: 500 9px/1 var(--text); font-style: normal; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; height: 9px; }
+.sc.b em { color: var(--ink); font-weight: 700; }
+.item[data-open="true"] .spark { display: none; }
+.lg { display: flex; flex-wrap: wrap; gap: 4px 16px; padding-block: 10px 12px; color: var(--muted); font-size: 12px; }
+.lg i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--g-on); vertical-align: -1px; margin-right: 6px; }
 .pts { font: 700 32px/1 var(--display); font-variant-numeric: tabular-nums; text-align: right; min-width: 44px; }
 .nums { display: none; }
 .detail { display: none; padding: 0 0 14px 44px; }
@@ -153,7 +159,7 @@ document.getElementById('t').innerHTML =
 document.getElementById('list').innerHTML = T.players.map((p) => {
   const chart = p.perDay.map((v, d) => v == null ? '<div class="n"><span>0</span><b></b></div>'
     : `<div class="${v === T.dayMax[d] ? 'b' : ''}"><span>${v}</span><b style="height:${Math.max(3, v / T.max * 64)}px"></b></div>`).join('');
-  const spark = p.perDay.map((v, d) => v == null ? '<i class="n"></i>' : `<i class="${v === T.dayMax[d] ? 'b' : ''}" style="height:${Math.max(2, v / T.max * 24)}px"></i>`).join('');
+  const spark = p.perDay.map((v, d) => v == null ? '<span class="sc n"><i></i><em></em></span>' : `<span class="sc ${v === T.dayMax[d] ? 'b' : ''}"><i style="height:${Math.max(2, v / T.max * 24)}px"></i><em>${v}</em></span>`).join('');
   return `<div class="item ${p.name === T.me ? 'me' : ''}" data-open="false">
     <button class="row" aria-expanded="false" style="padding-inline:max(16px,env(safe-area-inset-left,0px))">
       <span class="rank ${p.rank === 1 ? 'lead' : ''}">${p.rank}</span>
@@ -165,7 +171,7 @@ document.getElementById('list').innerHTML = T.players.map((p) => {
       <div class="days">${T.days.map((d) => `<div>${d}</div>`).join('')}</div>
       <div class="facts"><span><b>${p.zwei}</b>exakt (2 Pkt)</span><span><b>${p.eins}</b>Tendenz (1 Pkt)</span><span><b>${p.schnitt.toFixed(1)}</b>Ø je Spieltag</span></div></div>
   </div>`;
-}).join('');
+}).join('') + `<div class="gut lg"><span><i></i>Spieltagsbester (meiste Punkte am Spieltag)</span><span>Zahl unter dem Balken = Punkte</span></div>`;
 document.getElementById('list').addEventListener('click', (e) => {
   const b = e.target.closest('.row'); if (!b) return;
   const it = b.parentElement, open = it.dataset.open !== 'true';
