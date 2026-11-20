@@ -58,10 +58,10 @@ export async function renderTable(app, session, id) {
   const options = [...(rounds.length ? rounds : [round])].sort(compareRounds).map((r) => `<option value="${esc(r.id)}"${r.id === id ? ' selected' : ''}>${esc(roundLabel(r))}</option>`).join('');
 
   const tableHtml = `<table><thead><tr><th class="c1">#</th><th class="c2">Name</th>${spieltage.map((d) => `<th class="day">${d}</th>`).join('')}
-    <th class="stat sep">2er</th><th class="stat">1er</th><th class="stat">Ø</th><th class="ct">Pkt</th></tr></thead><tbody>${table.map((r) => `
+    <th class="stat sep">2er</th><th class="stat">1er</th><th class="ct">Pkt</th></tr></thead><tbody>${table.map((r) => `
     <tr class="${r.rank <= 3 ? 'top' : ''} ${isMe(session, r.name) ? 'me' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
     ${spieltage.map((d) => { const v = val(r, d); return v == null ? '<td class="day pend">·</td>' : `<td class="day ${isBest(v, d) ? 'best' : ''}">${v}</td>`; }).join('')}
-    <td class="stat sep">${r.zwei}</td><td class="stat">${r.eins}</td><td class="stat">${r.schnitt.toFixed(1)}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
+    <td class="stat sep">${r.zwei}</td><td class="stat">${r.eins}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
 
   const listHtml = table.map((r) => {
     const spark = spieltage.map((d) => { const v = val(r, d); return v == null ? '<span class="sc n"><i></i><em></em></span>'
@@ -72,12 +72,12 @@ export async function renderTable(app, session, id) {
       <button class="lrow" aria-expanded="false" style="padding-inline:max(16px,env(safe-area-inset-left,0px))">
         <span class="rank ${r.rank === 1 ? 'lead' : ''}">${r.rank}</span>
         <span class="who"><span class="nm">${esc(r.name)}</span><span class="spark" aria-hidden="true">${spark}</span></span>
-        <span class="nums"><span><b>${r.zwei}</b> 2er</span><span><b>${r.eins}</b> 1er</span><span>Ø <b>${r.schnitt.toFixed(1)}</b></span></span>
+        <span class="nums"><span><b>${r.zwei}</b> 2er</span><span><b>${r.eins}</b> 1er</span></span>
         <span class="pts">${r.total}</span>
       </button>
       <div class="detail gut"><div class="chart">${chart}</div>
         <div class="days">${spieltage.map((d) => `<div>${d}</div>`).join('')}</div>
-        <div class="facts"><span><b>${r.zwei}</b>exakt (2 Pkt)</span><span><b>${r.eins}</b>Tendenz (1 Pkt)</span><span><b>${r.schnitt.toFixed(1)}</b>Ø je Spieltag</span></div></div>
+        <div class="facts"><span><b>${r.zwei}</b>exakt (2 Pkt)</span><span><b>${r.eins}</b>Tendenz (1 Pkt)</span></div></div>
     </div>`;
   }).join('') + `<div class="gut lg"><span><i></i>Spieltagsbester (meiste Punkte am Spieltag)</span><span>Zahl unter dem Balken = Punkte</span></div>`;
 

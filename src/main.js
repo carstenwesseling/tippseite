@@ -3,6 +3,7 @@ import { checkAdmin } from './db.js';
 import { esc, $ } from './util.js';
 import { renderHome } from './pages/home.js';
 import { renderTable } from './pages/table.js';
+import { renderBestenliste } from './pages/bestenliste.js';
 import { renderAdmin } from './pages/admin.js';
 import { renderMembers, renderMember } from './pages/members.js';
 
@@ -20,7 +21,8 @@ async function route() {
   }
   app.innerHTML = '<p class="muted">Lade …</p>';
   try {
-    if (page === 'admin' && id === 'mitglieder') await renderMembers(app, session);
+    if (page === 'bestenliste') await renderBestenliste(app, session);
+    else if (page === 'admin' && id === 'mitglieder') await renderMembers(app, session);
     else if (page === 'admin' && id === 'mitglied' && id2) await renderMember(app, session, decodeURIComponent(id2));
     else if (page === 'admin') await renderAdmin(app, session);
     else if (page === 'runde' && id) await renderTable(app, session, id);
@@ -46,8 +48,10 @@ function renderUser() {
 
 function markNav() {
   const admin = location.hash.startsWith('#/admin');
+  const best = location.hash.startsWith('#/bestenliste');
   $('#nav-admin').toggleAttribute('aria-current', admin);
-  $('#nav-home').toggleAttribute('aria-current', !admin);
+  $('#nav-best').toggleAttribute('aria-current', best);
+  $('#nav-home').toggleAttribute('aria-current', !admin && !best);
 }
 
 onUser(async (user) => {
