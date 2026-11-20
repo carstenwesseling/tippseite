@@ -162,3 +162,4 @@ main > h2 { margin-inline: max(16px, env(safe-area-inset-left, 0px)); font: 700 
 .scroll td.total { font-weight: 700; }
 textarea { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; max-width: 100%; }
 input[type="file"] { max-width: 100%; }
+.scroll .mat th:first-child, .scroll .mat td:first-child { text-align: right; }
