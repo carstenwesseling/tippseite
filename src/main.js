@@ -35,7 +35,11 @@ function renderUser() {
   const u = session.user;
   if (!u) {
     el.innerHTML = '<button class="linkbtn" id="in">Anmelden</button>';
-    $('#in').addEventListener('click', () => login().catch((e) => alert(e.message)));
+    const btn = $('#in');
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      login().catch((e) => alert(e.message)).finally(() => { btn.disabled = false; });
+    });
     return;
   }
   const name = u.displayName || u.email || '?';
