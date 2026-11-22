@@ -19,6 +19,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    // Einstellungen (z. B. Termin der nächsten Tippfete): öffentlich lesbar, schreiben nur Admins.
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     // Mitgliederverwaltung: nur Admins.
     match /members/{id} {
       allow read, write: if isAdmin();

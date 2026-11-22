@@ -1,5 +1,5 @@
 import { configured, login, logout, onUser } from './firebase.js';
-import { checkAdmin } from './db.js';
+import { checkAdmin, getTipping } from './db.js';
 import { esc, $, enableSort } from './util.js';
 import { renderHome } from './pages/home.js';
 import { renderTable, stopPolling } from './pages/table.js';
@@ -7,6 +7,8 @@ import { renderBestenliste, renderBestenlisteMember } from './pages/bestenliste.
 import { renderAdmin } from './pages/admin.js';
 import { renderMembers, renderMember } from './pages/members.js';
 import { renderTippen } from './pages/tippen.js';
+import { renderTippfete } from './pages/tippfete.js';
+import { renderTippfeteAdmin } from './pages/tippfeteadmin.js';
 import { renderTipAdmin } from './pages/tipadmin.js';
 
 export const session = { user: null, isAdmin: false };
@@ -26,7 +28,9 @@ async function route() {
   try {
     if (page === 'bestenliste' && id) await renderBestenlisteMember(app, session, decodeURIComponent(id));
     else if (page === 'bestenliste') await renderBestenliste(app, session);
+    else if (page === 'tippfete') await renderTippfete(app, session);
     else if (page === 'tippen') await renderTippen(app, session);
+    else if (page === 'admin' && id === 'tippfete') await renderTippfeteAdmin(app, session);
     else if (page === 'admin' && id === 'tippen') await renderTipAdmin(app, session);
     else if (page === 'admin' && id === 'mitglieder') await renderMembers(app, session);
     else if (page === 'admin' && id === 'mitglied' && id2) await renderMember(app, session, decodeURIComponent(id2));
@@ -57,20 +61,32 @@ function renderUser() {
   el.innerHTML = `<a class="avatar" href="#/admin" title="${esc(name)}${session.isAdmin ? ' (Admin)' : ''}">${esc(initials)}</a>`;
 }
 
+let tippenOpen = false; // Tipprunde offen und gefüllt?
+const loadTippenState = async () => {
+  try { const t = configured ? await getTipping() : null; tippenOpen = Boolean(t?.open && t.order?.length); } catch { tippenOpen = false; }
+};
+
 function markNav() {
-  const admin = location.hash.startsWith('#/admin');
-  const best = location.hash.startsWith('#/bestenliste');
-  const tippen = location.hash.startsWith('#/tippen');
+  const h = location.hash;
+  const admin = h.startsWith('#/admin');
+  const best = h.startsWith('#/bestenliste');
+  const tippen = h.startsWith('#/tippen');
+  const fete = h.startsWith('#/tippfete');
   $('#nav-admin').toggleAttribute('aria-current', admin);
   $('#nav-best').toggleAttribute('aria-current', best);
   $('#nav-tippen').toggleAttribute('aria-current', tippen);
-  $('#nav-home').toggleAttribute('aria-current', !admin && !best && !tippen);
+  $('#nav-tippfete').toggleAttribute('aria-current', fete);
+  $('#nav-home').toggleAttribute('aria-current', !admin && !best && !tippen && !fete);
+  // ausgegraut, wenn nichts angezeigt werden kann (Tipprunde nicht offen bzw. nicht angemeldet)
+  $('#nav-tippen').classList.toggle('off', !tippenOpen);
+  $('#nav-admin').classList.toggle('off', !session.user);
 }
 
 onUser(async (user) => {
   session.user = user;
   session.isAdmin = configured ? await checkAdmin(user) : false;
   renderUser();
+  await loadTippenState();
   route();
 });
 addEventListener('hashchange', route);

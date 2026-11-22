@@ -29,6 +29,9 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .brand i { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, var(--ink) 0 22%, transparent 24%), var(--surface); border: 2px solid var(--ink); }
 nav { display: flex; gap: 12px; margin-left: auto; white-space: nowrap; font-weight: 500; font-size: 13px; color: var(--muted); }
 nav a[aria-current] { color: var(--ink); box-shadow: 0 2px 0 var(--pitch); }
+nav a.off { color: var(--muted); opacity: .45; }
+nav { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+nav::-webkit-scrollbar { display: none; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--pitch); color: var(--pitch-ink); font: 600 11px/28px var(--text); text-align: center; flex: none; }
 
 main { max-width: 1200px; margin: 0 auto; padding-block: 12px 40px; }
@@ -261,3 +264,23 @@ button.primary:disabled, button:disabled { opacity: .45; cursor: not-allowed; }
 .back, .mname { margin-inline: max(16px, env(safe-area-inset-left, 0px)); }
 .back { margin-block: 12px 4px; }
 .mname { margin-block: 0 10px; font: 700 26px/1.15 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+
+/* Seite "Nächste Tippfete": Eintrittskarte */
+.tf { margin-inline: max(16px, env(safe-area-inset-left, 0px)); padding-block: 8px 24px; }
+.ticket { display: grid; grid-template-columns: 1fr 112px; max-width: 560px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; filter: drop-shadow(0 6px 14px #0000001a); position: relative; }
+.ticket .main { padding: 20px 20px 22px; border-right: 2px dashed var(--line); min-width: 0; }
+.ticket .eyebrow { font: 700 13px/1 var(--display); text-transform: uppercase; letter-spacing: .14em; color: var(--muted); }
+.ticket h2 { font: 700 38px/1 var(--display); text-transform: uppercase; margin: 8px 0 14px; letter-spacing: .02em; }
+.ticket dl { display: grid; gap: 12px; margin: 0; }
+.ticket dt { font: 700 12px/1 var(--display); text-transform: uppercase; letter-spacing: .14em; color: var(--muted); margin-bottom: 3px; }
+.ticket dd { margin: 0; font: 600 19px/1.2 var(--text); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.ticket .stub { display: grid; place-items: center; align-content: center; gap: 2px; background: var(--pitch); color: var(--pitch-ink); border-radius: 0 9px 9px 0; text-align: center; padding: 10px; }
+.ticket .stub b { font: 700 54px/1 var(--display); }
+.ticket .stub span { font: 700 15px/1 var(--display); text-transform: uppercase; letter-spacing: .1em; }
+.ticket::before, .ticket::after { content: ""; position: absolute; right: 104px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 1px solid var(--line); }
+.ticket::before { top: -9px; border-top-color: transparent; }
+.ticket::after { bottom: -9px; border-bottom-color: transparent; }
+@media (max-width: 420px) { .ticket { grid-template-columns: 1fr 88px; } .ticket::before, .ticket::after { right: 80px; } .ticket h2 { font-size: 30px; } .ticket .stub b { font-size: 42px; } }
+.tfform { display: grid; gap: 10px; max-width: 420px; margin-bottom: 12px; }
+.tfform label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.tfform input { height: 42px; font-size: 16px; width: 100%; }

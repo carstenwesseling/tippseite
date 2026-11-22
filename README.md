@@ -21,6 +21,9 @@ Das Excel-Layout entspricht dem Parser (`src/tipsheet.js`): je Spieltag ein Bloc
 
 Die Tipper (`tippers`, `tipperMail`) sind getrennt von den Mitgliedern der Mitgliederverwaltung (`members`); neue Tipper werden dort automatisch ergänzt.
 
+## Nächste Tippfete
+**Verwaltung → Tippfete**: Datum, Uhrzeit und Ort (Freitext) eintragen. Die Seite „Nächste Tippfete“ zeigt den Termin als Eintrittskarte. Gespeichert wird in `settings/tippfete`; dafür müssen die Firestore-Regeln deployt sein (`npx firebase-tools deploy --only firestore:rules`).
+
 ## Excel-Format
 Je Mitspieler ein Blatt (Name = Blattname). Blöcke mit Kopfzelle `Tipp`; darunter je Spiel `Heim | - | Gast | Tipp H | : | Tipp G`.
 Blätter `Namen`, `Ergebnisse`, `aktueller Stand`, `bezahlt…`, `… L2` werden übersprungen. Das Blatt `Ergebnisse` dient als Fallback, falls OpenLigaDB nichts liefert.
