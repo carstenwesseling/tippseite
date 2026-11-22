@@ -20,7 +20,8 @@ export async function renderBestenliste(app, session) {
   const played = []; // { liga, rows } je Halbserie
   for (const round of full.filter(Boolean)) {
     const api = await loadSeason(round.jahr);
-    const { spieltage, results } = resolveResults(round, api?.matches, { completeDaysOnly: true });
+    const { spieltage, results, matches } = resolveResults(round, api?.matches, { completeDaysOnly: true });
+    if (!matches.every((m) => m.finished)) continue; // nur abgeschlossene Halbserien
     played.push({ liga: round.liga ?? null, rows: buildTable(round.players, results, spieltage) });
   }
   // Liga 2 = Halbserien mit Liga 2; Liga 1 = alle übrigen (Liga 1 und Halbserien ohne Ligaangabe).
@@ -90,7 +91,7 @@ export async function renderBestenliste(app, session) {
 export async function renderBestenlisteMember(app, session, name) {
   const key = normName(samePerson(name));
   const overview = await computeOverview(await listRounds(), { canWrite: session.isAdmin });
-  const played = overview.map((o) => ({ o, row: o.table.find((r) => normName(r.name) === key) })).filter((x) => x.row);
+  const played = overview.filter((o) => o.complete).map((o) => ({ o, row: o.table.find((r) => normName(r.name) === key) })).filter((x) => x.row);
   const shown = played[0]?.row.name ?? name;
   app.innerHTML = `<p class="back"><a href="#/bestenliste">← Bestenliste</a></p><h2 class="mname">${esc(shown)}</h2>${pointsCardHtml(played)}`;
 }
