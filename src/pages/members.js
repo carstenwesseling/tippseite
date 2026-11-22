@@ -1,6 +1,6 @@
 // Verwaltung: Mitglieder (Haken "tippt mit", Excel per Mail, neue Mitglieder) und Tipprunde (kommende Halbserie).
 import {
-  listMembers, listMemberMails, saveMembers, memberId, listRounds, getRound,
+  listMembers, listMemberMails, saveMembers, unlockTips, memberId, listRounds, getRound,
   getTipping, openTipping, setTippingOpen, listTips, deleteTipping, tippingToRound,
 } from '../db.js';
 import { esc, $ } from '../util.js';
@@ -15,7 +15,8 @@ export async function renderMembers(host) {
   const latest = rounds.length ? await getRound(rounds[0].id) : null;
   const current = new Set((latest?.players ?? []).map((p) => memberId(p.name)));
   const tipCount = new Map();
-  if (tipping) (await listTips().catch(() => [])).forEach((t) => tipCount.set(t.id, Object.keys(t.tips ?? {}).length));
+  const lockedTips = new Set(); // abgeschickte (gesperrte) Tipps
+  if (tipping) (await listTips().catch(() => [])).forEach((t) => { tipCount.set(t.id, Object.keys(t.tips ?? {}).length); if (t.locked) lockedTips.add(t.id); });
 
   const rows = saved.map((m) => ({ id: m.id, name: m.name, aktiv: m.aktiv, sendExcel: !!m.sendExcel, email: mails[m.id] ?? '', aktuell: current.has(m.id), stored: true }));
   // Vorbelegung aus der letzten Halbserie nur beim ersten Mal; danach zählt die gespeicherte Liste (sonst kämen gelöschte Mitglieder zurück)
@@ -43,10 +44,12 @@ export async function renderMembers(host) {
     list.innerHTML = rows.map((m, i) => {
       const n = tipCount.get(m.id);
       const badge = !m.stored && !m.aktuell ? '<span class="badge new">neu</span>' : m.aktuell ? '<span class="badge">tippt aktuell mit</span>' : '<span class="badge old">früher</span>';
+      const lock = lockedTips.has(m.id) ? '<span class="badge">abgeschickt</span>' : '';
       const progress = tipping && n != null ? `<span class="badge ${n >= total ? '' : 'old'}">${n}/${total} Tipps</span>` : '';
       return `<li class="${m.aktiv ? '' : 'off'}"><div class="mrow">
-        <label class="gut"><input type="checkbox" data-a="${i}" ${m.aktiv ? 'checked' : ''} aria-label="${esc(m.name)} tippt mit"><span class="nm">${esc(m.name)}</span>${progress}${badge}</label>
+        <label class="gut"><input type="checkbox" data-a="${i}" ${m.aktiv ? 'checked' : ''} aria-label="${esc(m.name)} tippt mit"><span class="nm">${esc(m.name)}</span>${progress}${lock}${badge}</label>
         <button class="rm" data-rm="${i}" aria-label="${esc(m.name)} aus der Liste löschen" title="Löschen">×</button></div>
+        ${lockedTips.has(m.id) ? `<div class="mx gut"><button type="button" data-unlock="${i}">Tipp zum Überschreiben freischalten</button></div>` : ''}
         ${m.aktiv ? `<div class="mx gut"><label class="chk"><input type="checkbox" data-x="${i}" ${m.sendExcel ? 'checked' : ''}> Excel per Mail</label>
           ${m.sendExcel ? `<input type="email" data-e="${i}" value="${esc(m.email)}" placeholder="E-Mail-Adresse" inputmode="email" aria-label="E-Mail-Adresse von ${esc(m.name)}">` : ''}</div>` : ''}</li>`;
     }).join('');
@@ -61,7 +64,14 @@ export async function renderMembers(host) {
     draw();
   });
   list.addEventListener('input', (e) => { if (e.target.dataset.e != null) rows[e.target.dataset.e].email = e.target.value; });
-  list.addEventListener('click', (e) => {
+  list.addEventListener('click', async (e) => {
+    const u = e.target.dataset.unlock;
+    if (u != null) {
+      const m = rows[u];
+      if (!confirm(`Tipp von ${m.name} freischalten? ${m.name} kann ihn danach erneut ändern und abschicken.`)) return;
+      try { await unlockTips(m.id); lockedTips.delete(m.id); say(`Tipp von ${m.name} ist freigeschaltet.`); draw(); } catch (err) { say(err.message, true); }
+      return;
+    }
     const i = e.target.dataset.rm; if (i == null) return;
     const m = rows[i];
     const hasTips = tipCount.get(m.id) > 0;

@@ -144,8 +144,12 @@ export async function getTips(id) {
   return s.exists() ? s.data() : null;
 }
 
+/** Abschicken speichert dauerhaft (locked): Besucher können den Tipp danach nicht mehr überschreiben. */
 export const saveTips = (id, name, tips) =>
-  setDoc(doc(db, 'tipping', 'current', 'tips', id), { name, tips, updatedAt: Date.now() });
+  setDoc(doc(db, 'tipping', 'current', 'tips', id), { name, tips, updatedAt: Date.now(), locked: true });
+
+/** Nur Admins: Tipp zum Überschreiben freigeben. */
+export const unlockTips = (id) => setDoc(doc(db, 'tipping', 'current', 'tips', id), { locked: false }, { merge: true });
 
 /** Nur Admins. */
 export async function listTips() {
