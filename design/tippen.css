@@ -1,0 +1,69 @@
+/* Gemeinsame Ergänzungen zu tippen-base.css (= Kopie von src/style.css): Mitgliederauswahl, Fortschritt, Toast, Mitgliederseite */
+main { padding-block: 0 40px; }
+button.primary { background: var(--pitch); color: var(--pitch-ink); border-color: var(--pitch); font-weight: 600; }
+button.primary:disabled { opacity: .45; cursor: not-allowed; }
+button:not(.lrow):not(.seg button):not(.primary):disabled { opacity: .5; }
+.tp { padding-bottom: 8px; }
+
+/* Mitglieder-Auswahl */
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.who label { flex: none; font-weight: 600; }
+.who select { flex: 1; min-width: 0; height: 40px; font-size: 16px; /* 16px: verhindert Zoom auf dem iPhone */ }
+.mlink { flex: none; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.need { margin-block: 8px; padding-block: 10px; color: var(--muted); }
+
+/* Tippfelder */
+.tip { text-align: center; padding: 0; width: 44px; height: 42px; border-radius: 8px; font: 700 22px/1 var(--display); font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.tip:focus { outline: 0; border-color: var(--pitch); box-shadow: 0 0 0 3px var(--pitch-soft); }
+.tip:disabled { opacity: .45; }
+.sp { scroll-margin-top: 100px; }
+.cnt { font: 600 12px/1 var(--text); color: var(--muted); font-variant-numeric: tabular-nums; }
+.full .cnt { color: var(--pitch); }
+.t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Fortschritt */
+.prog { display: flex; align-items: center; gap: 10px; }
+.pbar { flex: 1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.pbar i { display: block; height: 100%; width: 0; background: var(--pitch); transition: width .2s; }
+.pnum { font: 600 13px/1 var(--text); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.pnum b { color: var(--ink); }
+.send { height: 40px; padding-inline: 16px; white-space: nowrap; }
+.endsend { display: none; padding-block: 16px; }
+.big { width: 100%; height: 48px; font-size: 16px; }
+
+/* Spieltag-Sprungleiste */
+.chips { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 6px max(16px, env(safe-area-inset-left, 0px)); }
+.chips::-webkit-scrollbar { display: none; }
+.chips button { flex: none; min-width: 34px; height: 32px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); font: 600 13px/1 var(--text); font-variant-numeric: tabular-nums; color: var(--muted); }
+.chips button.part { border-color: var(--pitch); color: var(--ink); }
+.chips button.full { background: var(--pitch); border-color: var(--pitch); color: var(--pitch-ink); }
+
+.toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); max-width: calc(100vw - 32px); padding: 10px 14px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 13px; opacity: 0; pointer-events: none; transition: .2s; z-index: 60; text-align: center; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* Mitgliederseite */
+.mem-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 6px 16px; margin-bottom: 8px; }
+.mem-head h1 { margin: 0; }
+.count { font: 600 13px/1 var(--text); color: var(--muted); font-variant-numeric: tabular-nums; }
+.count b { color: var(--pitch); font-size: 15px; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 10px; }
+.tools button { height: 36px; font-size: 13px; }
+.add { display: flex; gap: 8px; }
+.add input { flex: 1; min-width: 0; height: 44px; font-size: 16px; }
+.add button { height: 44px; }
+.addmsg { min-height: 1.4em; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.addmsg.err { color: #b3261e; }
+.mlist { list-style: none; margin: 0; padding: 0; border-block: 1px solid var(--line); background: var(--surface); }
+@media (min-width: 760px) { .mlist { border: 1px solid var(--line); border-radius: 6px; } }
+.mlist li { border-bottom: 1px solid var(--line); display: flex; align-items: center; }
+.mlist li:last-child { border-bottom: 0; }
+.mlist label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; min-height: 52px; padding-block: 8px; cursor: pointer; }
+.mlist input[type=checkbox] { flex: none; width: 24px; height: 24px; margin: 0; padding: 0; accent-color: var(--pitch); }
+.mlist .nm { font-weight: 600; font-size: 16px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mlist li.off .nm { color: var(--muted); font-weight: 500; }
+.badge { flex: none; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 4px; background: var(--pitch-soft); color: var(--ink); letter-spacing: .02em; }
+.badge.new { background: var(--card); color: var(--card-ink); }
+.badge.old { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 500; }
+.mlist .rm { flex: none; width: 40px; height: 40px; border: 0; background: none; color: var(--muted); font-size: 20px; padding: 0; margin-right: max(8px, env(safe-area-inset-right, 0px)); }
+.legend { padding-block: 10px; color: var(--muted); font-size: 12.5px; }
+.legend a { text-decoration: underline; text-underline-offset: 3px; }
