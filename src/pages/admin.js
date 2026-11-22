@@ -1,11 +1,12 @@
 import { parseWorkbook, mergeParsed } from '../excel.js';
 import { planTeams, findNameGroups, mergePlayers } from '../matching.js';
+import { parseChronik, renameChronik } from '../chronik.js';
 import { fetchTeams } from '../openliga.js';
 import { BUNDESLIGA_FALLBACK } from '../teams.js';
 import {
-  saveRound, addPlayersToRound, deleteRound, listRounds, getSeasonMatches, ensureMembers,
+  saveRound, addPlayersToRound, deleteRound, listRounds, getSeasonMatches, ensureMembers, listMembers, memberNames,
 } from '../db.js';
-import { detectHalbserie, nameFromFilename, roundCode, roundLabel, seasonShort } from '../halbserie.js';
+import { detectHalbserie, nameFromFilename, roundCode, roundLabel, seasonShort, normName } from '../halbserie.js';
 import { esc, $ } from '../util.js';
 
 /** Zugriffsschutz für alle Verwaltungsseiten. Gibt true zurück, wenn der Nutzer Admin ist. */
@@ -73,9 +74,91 @@ export async function renderAdmin(app, session, flash = '') {
   $('#typ').addEventListener('change', refreshTarget);
   refreshTarget();
 
+
+  /** Chronik-Datei: je Blatt eine Halbserie mit Punkten pro Spieltag (nur Spalten A–S). */
+  async function chronikFlow(chronik, filename) {
+    const members = await listMembers().catch(() => []);
+    // 1) Namen, die schon als Alias eines Mitglieds bekannt sind, auf den Mitgliedsnamen abbilden.
+    const aliasMap = {};
+    const importNames = [...new Set(chronik.rounds.flatMap((r) => r.players.map((p) => p.name)))];
+    for (const n of importNames) {
+      const m = members.find((x) => memberNames(x).includes(normName(n)));
+      if (m && m.name !== n) aliasMap[n] = m.name;
+    }
+    const known = new Set(members.map((m) => m.name));
+    // 2) Unsichere Fälle: ähnliche Namen in der Datei oder zu vorhandenen Mitgliedern.
+    const effective = [...new Set(importNames.map((n) => aliasMap[n] ?? n))];
+    const groups = findNameGroups([...new Set([...effective, ...known])], { strict: true })
+      .filter((g) => g.some((n) => effective.includes(n)) && !g.every((n) => known.has(n)));
+
+    preview.innerHTML = `
+      <div class="msg ok">Chronik-Datei „${esc(filename)}“ erkannt: ${chronik.rounds.length} Halbserien, ${importNames.length} verschiedene Namen.
+        Gelesen werden nur die Spalten A–S (Platz, Name, Spieltage 1–17); Gesamt und alles rechts davon wird ignoriert.</div>
+      ${[...chronik.warnings, ...(chronik.ignored.length ? [`Übersprungene Blätter: ${chronik.ignored.join(', ')}`] : [])]
+        .map((w) => `<div class="msg warn">${esc(w)}</div>`).join('')}
+      <h4>Halbserien</h4>
+      ${chronik.rounds.map((r, i) => {
+        const ex = rounds.find((x) => x.jahr === r.jahr && x.typ === r.typ);
+        return `<label style="display:block"><input type="checkbox" data-r="${i}" checked />
+          ${esc(roundLabel(r))}${r.liga ? ` · Liga ${r.liga}` : ''} <span class="muted">(Blatt „${esc(r.sheet)}“, ${r.players.length} Mitspieler)</span>
+          ${ex ? `<span class="msg warn">Es gibt schon ${esc(roundLabel(ex))} – ${ex.kind === 'chronik' ? 'wird ersetzt' : 'wird als zusätzliche Halbserie angelegt'}</span>` : ''}</label>`;
+      }).join('')}
+      ${Object.keys(aliasMap).length ? `<h4>Bekannte Schreibweisen (Mitglieder-Aliase)</h4>
+        <div class="muted">${Object.entries(aliasMap).map(([a, b]) => `${esc(a)} → ${esc(b)}`).join(' · ')}</div>` : ''}
+      ${groups.length ? `<h4>Namen prüfen – gehören diese zusammen?</h4>
+        ${groups.map((g, i) => `<div class="card">
+          <div>${g.map((n) => `${esc(n)}${known.has(n) ? ' <span class="muted">(Mitglied)</span>' : ''}`).join(' &nbsp;·&nbsp; ')}</div>
+          <label style="display:block"><input type="radio" name="cg${i}" value="" checked /> Verschiedene Personen (getrennt lassen)</label>
+          <label style="display:block"><input type="radio" name="cg${i}" value="merge" /> Dieselbe Person, zusammenführen als
+            <select data-cinto="${i}">${[...g].sort((a, b) => known.has(b) - known.has(a)).map((n) => `<option>${esc(n)}</option>`).join('')}</select></label>
+        </div>`).join('')}`
+        : '<div class="msg ok">Keine unklaren Namen gefunden.</div>'}
+      <div class="row"><button id="cimport">Importieren</button><span id="cmsg"></span></div>`;
+
+    $('#cimport').addEventListener('click', async () => {
+      const map = { ...aliasMap };
+      const notes = [];
+      groups.forEach((g, i) => {
+        if ($(`[name="cg${i}"]:checked`)?.value !== 'merge') return;
+        const into = $(`[data-cinto="${i}"]`).value;
+        for (const n of g) {
+          if (n === into) continue;
+          for (const [orig, cur] of Object.entries({ ...Object.fromEntries(importNames.map((x) => [x, aliasMap[x] ?? x])) })) {
+            if (cur === n) map[orig] = into;
+          }
+          notes.push(`${n} → ${into}`);
+        }
+      });
+      const warnings = [];
+      const chosen = renameChronik(chronik.rounds.filter((_, i) => $(`[data-r="${i}"]`).checked), map, warnings);
+      if (!chosen.length) { $('#cmsg').innerHTML = '<span class="msg err">Keine Halbserie ausgewählt.</span>'; return; }
+      $('#cimport').disabled = true;
+      try {
+        for (const r of chosen) {
+          const old = rounds.find((x) => x.jahr === r.jahr && x.typ === r.typ && x.kind === 'chronik');
+          if (old) await deleteRound(old.id);
+          await saveRound({ jahr: r.jahr, typ: r.typ, kind: 'chronik', liga: r.liga, spieltage: r.spieltage, players: r.players });
+        }
+        const added = await ensureMembers(chosen.flatMap((r) => r.players.map((p) => p.name)));
+        renderAdmin(app, session, `<div class="msg ok">${chosen.length} Halbserien aus der Chronik importiert.
+          ${added.length ? `Neue Mitglieder (${added.length}): ${added.map(esc).join('; ')}.` : 'Keine neuen Mitglieder.'}
+          ${notes.length ? `Zusammengeführt: ${notes.map(esc).join('; ')}.` : ''}
+          ${warnings.map(esc).join(' ')}</div>`);
+      } catch (err) {
+        $('#cmsg').innerHTML = `<span class="msg err">${esc(err.message)}</span>`;
+        $('#cimport').disabled = false;
+      }
+    });
+  }
+
   $('#file').addEventListener('change', async (e) => {
     const files = [...e.target.files];
     if (!files.length) return;
+    if (files.length === 1) {
+      let chronik = null;
+      try { chronik = parseChronik(new Uint8Array(await files[0].arrayBuffer())); } catch { /* kein lesbares Chronik-Format */ }
+      if (chronik) { $('#detect').innerHTML = ''; await chronikFlow(chronik, files[0].name); return; }
+    }
     const parts = [];
     const errors = [];
     const sources = []; // { bytes, fallbackName } für das erneute Einlesen mit Umbenennung
