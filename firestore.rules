@@ -19,6 +19,40 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    // Mitglieder: Namen und Haken öffentlich (Auswahlliste im Tippformular); Mailadressen nur für Admins.
+    match /members/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /memberMail/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Tipprunde: öffentlich lesbar. Tipps einzelner Mitglieder darf lesen, wer die Dokument-ID (= Name) kennt;
+    // die Gesamtliste nur Admins. Schreiben darf jeder, solange die Runde offen ist und das Mitglied einen Haken hat.
+    match /tipping/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+      match /tips/{m} {
+        allow get: if true;
+        allow list, delete: if isAdmin();
+        allow create, update: if get(/databases/$(database)/documents/tipping/$(id)).data.open == true
+          && get(/databases/$(database)/documents/members/$(m)).data.aktiv == true
+          && request.resource.data.keys().hasOnly(['name', 'tips', 'updatedAt']);
+      }
+    }
+
+    // Excel-Mail (Erweiterung "Trigger Email from Firestore", Sammlung `mail`): nur an die im Admin hinterlegte
+    // Adresse eines aktiven Mitglieds, bei dem "Excel per Mail" angehakt ist.
+    match /mail/{doc} {
+      allow create: if request.resource.data.keys().hasOnly(['memberId', 'to', 'message'])
+        && request.resource.data.to is list && request.resource.data.to.size() == 1
+        && get(/databases/$(database)/documents/members/$(request.resource.data.memberId)).data.sendExcel == true
+        && get(/databases/$(database)/documents/members/$(request.resource.data.memberId)).data.aktiv == true
+        && get(/databases/$(database)/documents/memberMail/$(request.resource.data.memberId)).data.email.lower()
+           == request.resource.data.to[0].lower();
+    }
+
     // Jeder Angemeldete darf nur den eigenen Admin-Eintrag lesen; Einträge legt man in der Firebase-Konsole an.
     match /admins/{email} {
       allow get: if request.auth != null && request.auth.token.email.lower() == email;
