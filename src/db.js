@@ -131,7 +131,7 @@ export const memberNames = (m) => [m.name, ...(m.aliases ?? [])].map(normName);
 
 export async function listMembers() {
   const snap = await getDocs(collection(db, 'members'));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => !isPlaceholder(m.name)).sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
 export async function getMember(id) {
@@ -175,7 +175,7 @@ export const tipperId = (name) => encodeURIComponent(name.trim());
 export async function listTippers({ onlyActive = false } = {}) {
   const ref = collection(db, 'tippers');
   const snap = await getDocs(onlyActive ? query(ref, where('aktiv', '==', true)) : ref);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => !isPlaceholder(m.name)).sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
 /** Nur Admins: hinterlegte Mailadressen (id -> Adresse). */
