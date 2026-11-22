@@ -105,6 +105,6 @@ export const normName = (n) => String(n ?? '').normalize('NFC').toLowerCase().re
 export const isPlaceholder = (n) => /^xx{1,2}-?[1-7]$/.test(normName(n));
 
 // Dieselbe Person unter mehreren Schreibweisen/Namen: normalisierter Name -> gültiger Name.
-const SAME_PERSON = { 'kuchinke,st.': 'Reimann,St.', 'laskwoski,w.': 'Laskowski,W.', 'he-man': 'Homann,M.' };
+const SAME_PERSON = { 'kuchinke,st.': 'Reimann,St.', 'laskwoski,w.': 'Laskowski,W.', 'he-man': 'Homann,M.', 'lehn v.,u.': 'v. Lehn,U.', 'v.lehn,u.': 'v. Lehn,U.' };
 /** Wandelt bekannte Namensvarianten desselben Mitglieds in den gültigen Namen um (sonst unverändert). */
 export const samePerson = (n) => SAME_PERSON[normName(n)] ?? n;
