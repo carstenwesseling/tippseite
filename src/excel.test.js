@@ -7,8 +7,8 @@ import { buildTable } from './scoring.js';
 const FILE = 'fixtures/rueckrunde2526.xlsm';
 
 describe.skipIf(!existsSync(FILE))('Beispieldatei Rückrunde 25/26', () => {
-  const buf = readFileSync(FILE);
-  const parsed = parseWorkbook(new Uint8Array(buf));
+  const buf = existsSync(FILE) ? readFileSync(FILE) : null;
+  const parsed = buf ? parseWorkbook(new Uint8Array(buf)) : null;
 
   it('erkennt Spielerblätter und 153 Spiele (17x9)', () => {
     expect(parsed.players.length).toBeGreaterThan(50);
