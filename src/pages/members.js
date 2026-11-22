@@ -4,6 +4,7 @@ import {
 import { computeOverview, rowOfMember } from '../overview.js';
 import { roundCode, roundLabel, normName } from '../halbserie.js';
 import { adminGate, adminNav } from './admin.js';
+import { pointsCardHtml } from './punkte.js';
 import { esc, $ } from '../util.js';
 
 const memberHref = (m) => `#/admin/mitglied/${encodeURIComponent(m.id)}`;
@@ -87,27 +88,13 @@ export async function renderMember(app, session, id, flash = '') {
   if (!m) { app.innerHTML = `${adminNav('members')}<div class="msg err">Mitglied nicht gefunden.</div>`; return; }
   const overview = await computeOverview(rounds, { canWrite: true });
   const played = overview.map((o) => ({ o, row: rowOfMember(m, o.table) })).filter((x) => x.row);
-  const maxDays = Math.max(0, ...played.map(({ o }) => o.spieltage.length));
-  const total = played.reduce((a, { row }) => a + row.total, 0);
 
   app.innerHTML = `
     ${adminNav('members')}
     ${flash}
     <p><a href="#/admin/mitglieder">← Alle Mitglieder</a></p>
     <h2>${esc(m.name)}</h2>
-    <div class="card"><h3>Punkteübersicht</h3>
-      ${played.length ? `<div class="scroll"><table class="mat">
-        <thead><tr><th>Halbserie</th><th>Rang</th><th>Punkte</th><th>2er</th><th>1er</th><th>Ø</th>
-          ${Array.from({ length: maxDays }, (_, i) => `<th>${i + 1}.</th>`).join('')}</tr></thead>
-        <tbody>${played.map(({ o, row }) => `<tr>
-          <td><a href="#/runde/${esc(o.round.id)}">${esc(roundCode(o.round))}</a> <span class="muted">${esc(roundLabel(o.round))}</span></td>
-          <td>${row.rank}. <span class="muted">/ ${o.table.length}</span></td><td class="total">${row.total}</td><td>${row.zwei ?? '–'}</td><td>${row.eins ?? '–'}</td><td>${row.schnitt.toFixed(2)}</td>
-          ${Array.from({ length: maxDays }, (_, i) => `<td>${o.spieltage[i] === undefined ? '' : (row.totalOnly ? '-' : (row.perDay[o.spieltage[i]] ?? 0))}</td>`).join('')}</tr>`).join('')}
-        </tbody></table></div>
-        <p>${played.length} Halbserien · ${total} Punkte insgesamt</p>
-        <div class="muted">Spieltagsspalten zeigen die Punkte je Spieltag (bei Ergebnissen aus der Excel-Datei: je Block).</div>`
-        : '<div class="msg">Für dieses Mitglied wurden noch keine Tipps gefunden.</div>'}
-    </div>
+    ${pointsCardHtml(played)}
     <div class="card"><h3>Stammdaten</h3>
       <div class="row"><label>Name <input id="mname" value="${esc(m.name)}" style="width:18rem" /></label></div>
       <label class="muted" style="display:block">Weitere Schreibweisen in Excel-Dateien (eine pro Zeile)</label>

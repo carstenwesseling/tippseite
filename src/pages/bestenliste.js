@@ -3,6 +3,8 @@ import { buildTable } from '../scoring.js';
 import { resolveResults } from './table.js';
 import { esc } from '../util.js';
 import { normName } from '../halbserie.js';
+import { computeOverview } from '../overview.js';
+import { pointsCardHtml } from './punkte.js';
 
 const fmt = (n) => n.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -68,9 +70,9 @@ export async function renderBestenliste(app, session) {
     <div class="seg" role="group" aria-label="Liga">${Object.entries(SCOPES).map(([k, l]) => `<button data-scope="${k}" aria-pressed="${k === scope}">${l}</button>`).join('')}</div></div>
     ${rows.length ? `<div class="wrap"><table class="best-tbl"><thead><tr><th class="c1">#</th>${th('name', 'c2', 'Name')}
       ${th('teilnahmen', 'stat', 'Teilnahmen')}${th('schnitt', 'stat', 'Schnitt')}${th('total', 'ct', 'Pkt')}</tr></thead><tbody>${rows.map((r) => `
-      <tr class="${r.rank <= 3 ? 'top' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
+      <tr class="${r.rank <= 3 ? 'top' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2"><a href="#/bestenliste/${encodeURIComponent(r.name)}">${esc(r.name)}</a></td>
       <td class="stat">${r.teilnahmen}</td><td class="stat">${fmt(r.schnitt)}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table></div>
-      <div class="gut hint"><span>Schnitt = Gesamtpunkte ÷ Teilnahmen (Halbserien) · Nummerierung nach ${{ schnitt: 'Schnitt', total: 'Punkten', teilnahmen: 'Teilnahmen' }[rankKey]}; Klick auf eine Spaltenüberschrift sortiert neu</span></div>`
+      <div class="gut hint"><span>Schnitt = Gesamtpunkte ÷ Teilnahmen (Halbserien) · Nummerierung nach ${{ schnitt: 'Schnitt', total: 'Punkten', teilnahmen: 'Teilnahmen' }[rankKey]}; Klick auf eine Spaltenüberschrift sortiert neu, Klick auf einen Namen zeigt die Details</span></div>`
     : '<div class="msg">Noch keine Daten vorhanden.</div>'}`;
     app.querySelectorAll('button[data-scope]').forEach((b) => b.addEventListener('click', () => { scope = b.dataset.scope; render(); }));
     app.querySelectorAll('th[data-sort]').forEach((h) => h.addEventListener('click', () => {
@@ -82,4 +84,13 @@ export async function renderBestenliste(app, session) {
     }));
   };
   render();
+}
+
+/** Detailansicht eines Mitglieds (öffentlich): Punkte und Rang in allen Halbserien, wie in der Mitgliederverwaltung. */
+export async function renderBestenlisteMember(app, session, name) {
+  const key = normName(name);
+  const overview = await computeOverview(await listRounds(), { canWrite: session.isAdmin });
+  const played = overview.map((o) => ({ o, row: o.table.find((r) => normName(r.name) === key) })).filter((x) => x.row);
+  const shown = played[0]?.row.name ?? name;
+  app.innerHTML = `<p class="back"><a href="#/bestenliste">← Bestenliste</a></p><h2 class="mname">${esc(shown)}</h2>${pointsCardHtml(played)}`;
 }

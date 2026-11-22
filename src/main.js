@@ -3,7 +3,7 @@ import { checkAdmin } from './db.js';
 import { esc, $, enableSort } from './util.js';
 import { renderHome } from './pages/home.js';
 import { renderTable, stopPolling } from './pages/table.js';
-import { renderBestenliste } from './pages/bestenliste.js';
+import { renderBestenliste, renderBestenlisteMember } from './pages/bestenliste.js';
 import { renderAdmin } from './pages/admin.js';
 import { renderMembers, renderMember } from './pages/members.js';
 import { renderTippen } from './pages/tippen.js';
@@ -24,7 +24,8 @@ async function route() {
   }
   app.innerHTML = '<p class="muted">Lade …</p>';
   try {
-    if (page === 'bestenliste') await renderBestenliste(app, session);
+    if (page === 'bestenliste' && id) await renderBestenlisteMember(app, session, decodeURIComponent(id));
+    else if (page === 'bestenliste') await renderBestenliste(app, session);
     else if (page === 'tippen') await renderTippen(app, session);
     else if (page === 'admin' && id === 'tippen') await renderTipAdmin(app, session);
     else if (page === 'admin' && id === 'mitglieder') await renderMembers(app, session);
