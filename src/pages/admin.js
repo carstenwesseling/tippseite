@@ -1,4 +1,7 @@
 import { parseWorkbook, mergeParsed } from '../excel.js';
+import { planTeams, findNameGroups, mergePlayers } from '../matching.js';
+import { fetchTeams } from '../openliga.js';
+import { BUNDESLIGA_FALLBACK } from '../teams.js';
 import {
   saveRound, addPlayersToRound, deleteRound, listRounds, getSeasonMatches, ensureMembers,
 } from '../db.js';
@@ -75,9 +78,13 @@ export async function renderAdmin(app, session, flash = '') {
     if (!files.length) return;
     const parts = [];
     const errors = [];
+    const sources = []; // { bytes, fallbackName } für das erneute Einlesen mit Umbenennung
     for (const f of files) {
       try {
-        parts.push(parseWorkbook(new Uint8Array(await f.arrayBuffer()), { fallbackName: nameFromFilename(f.name) }));
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        const fallbackName = nameFromFilename(f.name);
+        parts.push(parseWorkbook(bytes, { fallbackName }));
+        sources.push({ bytes, fallbackName });
       } catch (err) {
         errors.push(`${f.name}: ${err.message}`);
       }
@@ -102,11 +109,57 @@ export async function renderAdmin(app, session, flash = '') {
     if (jahre.length > 1 || typen.length > 1) hints.push('<div class="msg warn">Die Dateinamen deuten auf unterschiedliche Halbserien hin – bitte nur Dateien einer Halbserie gemeinsam hochladen.</div>');
     $('#detect').innerHTML = hints.join('');
 
+    // Rückfrage: Vereine mit aktueller Bundesliga abgleichen, Mitspielernamen prüfen.
+    let bundesliga = BUNDESLIGA_FALLBACK, teamSource = 'feste Liste (OpenLigaDB nicht erreichbar)';
+    try {
+      bundesliga = await fetchTeams(Number($('#jahr').value));
+      teamSource = `OpenLigaDB, Saison ${$('#jahr').value}`;
+    } catch { /* Fallback */ }
+    const teamPlan = planTeams(parsed.teams, bundesliga).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    const nameGroups = findNameGroups(parsed.players.map((p) => p.name));
+    const opts = (sel) => `<option value="">– unverändert lassen –</option>${[...bundesliga].sort((a, b) => a.localeCompare(b, 'de'))
+      .map((t) => `<option ${t === sel ? 'selected' : ''}>${esc(t)}</option>`).join('')}`;
+    preview.innerHTML = `
+      ${errors.map((m) => `<div class="msg err">Datei nicht lesbar: ${esc(m)}</div>`).join('')}
+      <div class="msg ok">${parsed.players.length} Spielerblätter gefunden. Bitte Zuordnung prüfen und bestätigen.</div>
+      <h4>Vereine → aktuelle Bundesliga <span class="muted">(${esc(teamSource)})</span></h4>
+      ${teamPlan.map((t, i) => `<div class="row"><span style="min-width:9rem">${esc(t.name)}</span> →
+        <select data-team="${i}">${opts(t.suggestion)}</select>
+        ${t.suggestion === null ? '<span class="msg err">Kein Vorschlag – bitte wählen</span>'
+          : t.sure ? '' : '<span class="msg warn">Umbenennung vorgeschlagen</span>'}</div>`).join('')}
+      ${nameGroups.length ? `<h4>Mitspielernamen – gehören diese zusammen?</h4>
+        ${nameGroups.map((g, i) => `<div class="card">
+          <div>${g.map(esc).join(' &nbsp;·&nbsp; ')}</div>
+          <label style="display:block"><input type="radio" name="g${i}" value="" checked /> Verschiedene Personen (getrennt lassen)</label>
+          <label style="display:block"><input type="radio" name="g${i}" value="merge" /> Dieselbe Person, zusammenführen als
+            <select data-into="${i}">${g.map((n) => `<option>${esc(n)}</option>`).join('')}</select></label>
+        </div>`).join('')}` : ''}
+      <div class="row"><button id="confirm">Zuordnung bestätigen</button></div>`;
+
+    $('#confirm').addEventListener('click', () => {
+      const rename = {}, notes = [];
+      teamPlan.forEach((t, i) => {
+        const to = $(`[data-team="${i}"]`).value;
+        if (to && to !== t.name) { rename[t.name] = to; notes.push(`Verein „${t.name}“ → „${to}“`); }
+      });
+      const merges = nameGroups.flatMap((g, i) => {
+        const sel = $(`[name="g${i}"]:checked`)?.value;
+        return sel === 'merge' ? [{ names: g, into: $(`[data-into="${i}"]`).value }] : [];
+      });
+      parsed = mergeParsed(sources.map((x) => parseWorkbook(x.bytes, { fallbackName: x.fallbackName, rename })));
+      const merged = mergePlayers(parsed.players, merges);
+      parsed.players = merged.players;
+      merges.forEach((m) => notes.push(`Mitspieler zusammengeführt: ${m.names.join(' + ')} → „${m.into}“`));
+      showFinal(errors, [...notes, ...merged.conflicts]);
+    });
+  });
+
+  function showFinal(errors, notes) {
     preview.innerHTML = `
       ${errors.map((m) => `<div class="msg err">Datei nicht lesbar: ${esc(m)}</div>`).join('')}
       <div class="msg ok">${parsed.players.length} Spielerblätter, ${parsed.order.length} Spiele je Blatt.
         ${parsed.excelResults ? `${parsed.excelResults.length} Ergebnisse im Blatt „Ergebnisse“ (Fallback).` : ''}</div>
-      ${parsed.warnings.map((w) => `<div class="msg warn">${esc(w)}</div>`).join('')}
+      ${[...notes, ...parsed.warnings].map((w) => `<div class="msg warn">${esc(w)}</div>`).join('')}
       <div class="muted">Übersprungene Blätter: ${esc(parsed.ignored.join(', ') || '–')}</div>
       <details ${parsed.players.length <= 10 ? 'open' : ''}><summary>Mitspieler auswählen</summary>${parsed.players.map((p, i) =>
         `<label style="display:block"><input type="checkbox" data-p="${i}" checked /> ${esc(p.name)}
@@ -142,7 +195,7 @@ export async function renderAdmin(app, session, flash = '') {
         $('#save').disabled = false;
       }
     });
-  });
+  }
 
   app.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm('Halbserie wirklich löschen?')) return;
