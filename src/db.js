@@ -53,6 +53,35 @@ async function writePlayers(roundId, players) {
 }
 
 /**
+ * Ergänzt bei bestehenden Spielern einer Halbserie nur die Werte 2er/1er (alles andere bleibt unverändert).
+ * Zuordnung über den Namen (Schreibweise egal, bekannte Namensvarianten und `alias`-Zuordnung berücksichtigt).
+ * @param {Array<{name:string,zwei?:number,eins?:number}>} rows
+ * @param {Record<string,string>} alias Dateiname -> Mitgliedsname
+ * @returns {Promise<{updated:number, unmatched:string[]}>}
+ */
+export async function addStatsToRound(roundId, rows, alias = {}) {
+  const snap = await getDocs(collection(db, 'rounds', roundId, 'players'));
+  const byName = new Map(snap.docs.map((d) => [normName(samePerson(d.data().name)), d.ref]));
+  const ops = [];
+  const unmatched = [];
+  for (const r of rows) {
+    const ref = byName.get(normName(samePerson(r.name))) ?? byName.get(normName(samePerson(alias[r.name] ?? '')));
+    const upd = {};
+    if (typeof r.zwei === 'number') upd.zwei = r.zwei;
+    if (typeof r.eins === 'number') upd.eins = r.eins;
+    if (!Object.keys(upd).length) continue;
+    if (!ref) { unmatched.push(r.name); continue; }
+    ops.push([ref, upd]);
+  }
+  for (let i = 0; i < ops.length; i += 400) {
+    const batch = writeBatch(db);
+    ops.slice(i, i + 400).forEach(([ref, upd]) => batch.update(ref, upd));
+    await batch.commit();
+  }
+  return { updated: ops.length, unmatched };
+}
+
+/**
  * Fügt Mitspieler (z. B. einzeln hochgeladene Blätter) einer bestehenden Halbserie hinzu.
  * Gleichnamige Mitspieler werden überschrieben. Spielplan/Fallback-Ergebnisse werden nur ergänzt, wenn leer.
  */

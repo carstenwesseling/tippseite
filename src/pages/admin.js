@@ -4,7 +4,7 @@ import { parseChronik, renameChronik } from '../chronik.js';
 import { fetchTeams } from '../openliga.js';
 import { BUNDESLIGA_FALLBACK } from '../teams.js';
 import {
-  saveRound, addPlayersToRound, deleteRound, deleteAllData, listRounds, getSeasonMatches, ensureMembers, listMembers, memberNames,
+  saveRound, addPlayersToRound, addStatsToRound, deleteRound, deleteAllData, listRounds, getSeasonMatches, ensureMembers, listMembers, memberNames,
 } from '../db.js';
 import { detectHalbserie, nameFromFilename, roundCode, roundLabel, sameHalbserie, seasonShort, normName } from '../halbserie.js';
 import { esc, $ } from '../util.js';
@@ -149,7 +149,8 @@ export async function renderAdmin(app, session, flash = '') {
             <select data-cinto="${i}">${[...g].sort((a, b) => (b === pre.get(i)) - (a === pre.get(i)) || known.has(b) - known.has(a)).map((n) => `<option>${esc(n)}</option>`).join('')}</select></label>
         </div>`).join('')}`
         : '<div class="msg ok">Keine unklaren Namen gefunden.</div>'}
-      <div class="row"><button id="cimport">Importieren</button><span id="cmsg"></span></div>`;
+      <div class="row"><button id="cimport">Importieren</button>
+        <button id="cstats" title="Trägt nur 2er und 1er bei bereits vorhandenen Chronik-Halbserien ein; Punkte und alles andere bleiben unverändert.">Nur 2er/1er ergänzen</button><span id="cmsg"></span></div>`;
 
     const withFix = (base, sheet, fix, on) => {
       const next = { ...base };
@@ -168,6 +169,29 @@ export async function renderAdmin(app, session, flash = '') {
       const next = tot.reduce((acc, i) => withFix(acc, i.sheet, i.fix, on), fixes);
       chronikFlow(bytes, filename, next);
     }));
+
+    $('#cstats').addEventListener('click', async () => {
+      const sel = chronik.rounds.filter((_, i) => $(`[data-r="${i}"]`).checked);
+      // nur bestehende Chronik-Halbserien mit 2er/1er-Werten; andere (z. B. die laufende Halbserie) bleiben unberührt
+      const targets = sel.map((r) => ({ r, ex: rounds.find((x) => sameHalbserie(x, r) && x.kind === 'chronik') }))
+        .filter((t) => t.ex && t.r.players.some((p) => typeof p.zwei === 'number' || typeof p.eins === 'number'));
+      if (!targets.length) { $('#cmsg').innerHTML = '<span class="msg err">Keine passende, schon vorhandene Halbserie mit 2er/1er-Werten ausgewählt.</span>'; return; }
+      $('#cstats').disabled = true; $('#cimport').disabled = true;
+      let updated = 0;
+      const missing = [];
+      try {
+        for (const { r, ex } of targets) {
+          const res = await addStatsToRound(ex.id, r.players, aliasMap);
+          updated += res.updated;
+          res.unmatched.forEach((n) => missing.push(`${roundCode(r)}: ${n}`));
+        }
+        renderAdmin(app, session, `<div class="msg ok">2er/1er bei ${updated} Spielern in ${targets.length} Halbserien ergänzt.
+          ${missing.length ? `Nicht zugeordnet (${missing.length}): ${missing.map(esc).join('; ')}.` : ''}</div>`);
+      } catch (err) {
+        $('#cmsg').innerHTML = `<span class="msg err">${esc(err.message)}</span>`;
+        $('#cstats').disabled = false; $('#cimport').disabled = false;
+      }
+    });
 
     $('#cimport').addEventListener('click', async () => {
       const map = { ...aliasMap };
