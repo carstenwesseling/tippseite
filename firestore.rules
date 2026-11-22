@@ -24,6 +24,26 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    // Umfrage zur Tippfete: öffentlich lesbar sind nur die Anzahlen (settings/tippfeteCounts). Eine Stimme darf nur neu angelegt
+    // werden (nie geändert), und nur zusammen mit dem passenden +1 am Zähler. Namen/Stimmen auflisten: nur Admins.
+    match /settings/tippfeteCounts {
+      allow update: if request.resource.data.keys().hasOnly(['k', 'n', 'last'])
+        && request.resource.data.last is string
+        && !exists(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
+        && existsAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
+        && ((getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
+              && request.resource.data.k == resource.data.k + 1 && request.resource.data.n == resource.data.n)
+          || (getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
+              && request.resource.data.n == resource.data.n + 1 && request.resource.data.k == resource.data.k));
+    }
+    match /tippfeteVotes/{id} {
+      allow get: if true;
+      allow list, delete: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['name', 'antwort', 'at'])
+        && request.resource.data.antwort in ['k', 'n']
+        && request.resource.data.name is string && request.resource.data.name.size() < 80
+        && getAfter(/databases/$(database)/documents/settings/tippfeteCounts).data.last == id;
+    }
     // Mitgliederverwaltung: nur Admins.
     match /members/{id} {
       allow read, write: if isAdmin();
