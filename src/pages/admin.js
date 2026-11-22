@@ -76,7 +76,15 @@ export async function renderAdmin(app, session, flash = '') {
 
 
   /** Chronik-Datei: je Blatt eine Halbserie mit Punkten pro Spieltag (nur Spalten A–S). */
-  async function chronikFlow(chronik, filename) {
+  async function chronikFlow(bytes, filename, fixes = null) {
+    // Beim ersten Mal die empfohlenen Korrekturen vorauswählen; danach gilt die Auswahl des Nutzers.
+    if (!fixes) {
+      const first = parseChronik(bytes);
+      fixes = Object.fromEntries(first.issues.filter((i) => i.fix && i.recommended).map((i) => [i.sheet, i.fix]));
+    }
+    const chronik = parseChronik(bytes, { fixes });
+    const issueSheets = new Set(chronik.issues.map((i) => i.sheet));
+    const skipped = chronik.ignored.filter((n) => !issueSheets.has(n));
     const members = await listMembers().catch(() => []);
     // 1) Namen, die schon als Alias eines Mitglieds bekannt sind, auf den Mitgliedsnamen abbilden.
     const aliasMap = {};
@@ -94,7 +102,19 @@ export async function renderAdmin(app, session, flash = '') {
     preview.innerHTML = `
       <div class="msg ok">Chronik-Datei „${esc(filename)}“ erkannt: ${chronik.rounds.length} Halbserien, ${importNames.length} verschiedene Namen.
         Gelesen werden nur die Spalten A–S (Platz, Name, Spieltage 1–17); Gesamt und alles rechts davon wird ignoriert.</div>
-      ${[...chronik.warnings, ...(chronik.ignored.length ? [`Übersprungene Blätter: ${chronik.ignored.join(', ')}`] : [])]
+      ${chronik.issues.length ? `<h4>Fehlerhafte Arbeitsblätter (${chronik.issues.length})</h4>
+        <div class="muted">Diese Blätter weichen vom erwarteten Aufbau ab. Mit Haken wird der Korrekturvorschlag beim Import angewendet,
+          ohne Haken wird das Blatt übersprungen. Die Excel-Datei selbst bleibt unverändert.</div>
+        ${chronik.issues.some((i) => i.kind === 'totals') ? `<div class="row"><button data-allkind="totals">Alle Blätter mit nur Gesamtpunkten ${
+          chronik.issues.filter((i) => i.kind === 'totals').every((i) => i.applied) ? 'wieder ausschließen' : 'einbeziehen'}</button></div>` : ''}
+        ${chronik.issues.map((i, n) => `<div class="card">
+          <strong>${esc(i.sheet)}</strong>
+          <div class="msg ${i.applied ? 'ok' : 'warn'}">${esc(i.problem)}</div>
+          <div class="muted">Vorschlag: ${esc(i.suggestion)}</div>
+          ${i.fix ? `<label style="display:block"><input type="checkbox" data-fix="${n}" ${i.applied ? 'checked' : ''} /> ${esc(i.fixLabel)}${i.applied ? ' – wird angewendet' : ''}</label>`
+            : '<div class="muted">Keine automatische Korrektur möglich – Blatt wird übersprungen.</div>'}
+        </div>`).join('')}` : ''}
+      ${[...chronik.warnings, ...(skipped.length ? [`Übersprungene Blätter: ${skipped.join(', ')}`] : [])]
         .map((w) => `<div class="msg warn">${esc(w)}</div>`).join('')}
       <h4>Halbserien</h4>
       ${chronik.rounds.map((r, i) => {
@@ -114,6 +134,24 @@ export async function renderAdmin(app, session, flash = '') {
         </div>`).join('')}`
         : '<div class="msg ok">Keine unklaren Namen gefunden.</div>'}
       <div class="row"><button id="cimport">Importieren</button><span id="cmsg"></span></div>`;
+
+    const withFix = (base, sheet, fix, on) => {
+      const next = { ...base };
+      const list = new Set([].concat(next[sheet] ?? []));
+      if (on) list.add(fix); else list.delete(fix);
+      if (list.size) next[sheet] = [...list]; else delete next[sheet];
+      return next;
+    };
+    app.querySelectorAll('[data-fix]').forEach((box) => box.addEventListener('change', () => {
+      const i = chronik.issues[Number(box.dataset.fix)];
+      chronikFlow(bytes, filename, withFix(fixes, i.sheet, i.fix, box.checked));
+    }));
+    app.querySelectorAll('[data-allkind]').forEach((btn) => btn.addEventListener('click', () => {
+      const tot = chronik.issues.filter((i) => i.kind === 'totals');
+      const on = !tot.every((i) => i.applied);
+      const next = tot.reduce((acc, i) => withFix(acc, i.sheet, i.fix, on), fixes);
+      chronikFlow(bytes, filename, next);
+    }));
 
     $('#cimport').addEventListener('click', async () => {
       const map = { ...aliasMap };
@@ -155,9 +193,12 @@ export async function renderAdmin(app, session, flash = '') {
     const files = [...e.target.files];
     if (!files.length) return;
     if (files.length === 1) {
-      let chronik = null;
-      try { chronik = parseChronik(new Uint8Array(await files[0].arrayBuffer())); } catch { /* kein lesbares Chronik-Format */ }
-      if (chronik) { $('#detect').innerHTML = ''; await chronikFlow(chronik, files[0].name); return; }
+      let bytes = null, isChronik = false;
+      try {
+        bytes = new Uint8Array(await files[0].arrayBuffer());
+        isChronik = !!parseChronik(bytes);
+      } catch { /* kein lesbares Chronik-Format */ }
+      if (isChronik) { $('#detect').innerHTML = ''; await chronikFlow(bytes, files[0].name); return; }
     }
     const parts = [];
     const errors = [];
