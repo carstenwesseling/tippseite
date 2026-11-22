@@ -18,7 +18,8 @@ export async function renderMembers(host) {
   if (tipping) (await listTips().catch(() => [])).forEach((t) => tipCount.set(t.id, Object.keys(t.tips ?? {}).length));
 
   const rows = saved.map((m) => ({ id: m.id, name: m.name, aktiv: m.aktiv, sendExcel: !!m.sendExcel, email: mails[m.id] ?? '', aktuell: current.has(m.id), stored: true }));
-  for (const p of latest?.players ?? []) {
+  // Vorbelegung aus der letzten Halbserie nur beim ersten Mal; danach zählt die gespeicherte Liste (sonst kämen gelöschte Mitglieder zurück)
+  for (const p of saved.length ? [] : latest?.players ?? []) {
     const id = memberId(p.name);
     if (!rows.some((r) => r.id === id)) rows.push({ id, name: p.name, aktiv: true, sendExcel: false, email: '', aktuell: true, stored: false });
   }
@@ -45,7 +46,7 @@ export async function renderMembers(host) {
       const progress = tipping && n != null ? `<span class="badge ${n >= total ? '' : 'old'}">${n}/${total} Tipps</span>` : '';
       return `<li class="${m.aktiv ? '' : 'off'}"><div class="mrow">
         <label class="gut"><input type="checkbox" data-a="${i}" ${m.aktiv ? 'checked' : ''} aria-label="${esc(m.name)} tippt mit"><span class="nm">${esc(m.name)}</span>${progress}${badge}</label>
-        ${m.aktuell ? '' : `<button class="rm" data-rm="${i}" aria-label="${esc(m.name)} entfernen">×</button>`}</div>
+        <button class="rm" data-rm="${i}" aria-label="${esc(m.name)} aus der Liste löschen" title="Löschen">×</button></div>
         ${m.aktiv ? `<div class="mx gut"><label class="chk"><input type="checkbox" data-x="${i}" ${m.sendExcel ? 'checked' : ''}> Excel per Mail</label>
           ${m.sendExcel ? `<input type="email" data-e="${i}" value="${esc(m.email)}" placeholder="E-Mail-Adresse" inputmode="email" aria-label="E-Mail-Adresse von ${esc(m.name)}">` : ''}</div>` : ''}</li>`;
     }).join('');
@@ -62,8 +63,12 @@ export async function renderMembers(host) {
   list.addEventListener('input', (e) => { if (e.target.dataset.e != null) rows[e.target.dataset.e].email = e.target.value; });
   list.addEventListener('click', (e) => {
     const i = e.target.dataset.rm; if (i == null) return;
-    if (rows[i].stored) removed.push(rows[i].id);
+    const m = rows[i];
+    const hasTips = tipCount.get(m.id) > 0;
+    if (!confirm(`„${m.name}“ aus der Mitgliederliste löschen?${hasTips ? ' Bereits abgeschickte Tipps bleiben in der Tipprunde erhalten.' : ''}`)) return;
+    if (m.stored) removed.push(m.id);
     rows.splice(i, 1); draw();
+    say(`${m.name} entfernt. Mit „Mitglieder speichern“ übernehmen.`);
   });
   $('#m-add').addEventListener('submit', (e) => {
     e.preventDefault();
