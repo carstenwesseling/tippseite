@@ -17,7 +17,7 @@ export async function computeOverview(rounds, { canWrite = false } = {}) {
   };
   return Promise.all(rounds.map(async (meta) => {
     const [round, matches] = await Promise.all([getRound(meta.id), matchesOf(meta.jahr)]);
-    const { spieltage, results } = resolveResults(round, matches);
+    const { spieltage, results } = resolveResults(round, matches, { completeDaysOnly: true });
     return { round, spieltage, table: buildTable(round.players, results, spieltage), played: results.length };
   }));
 }

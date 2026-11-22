@@ -5,14 +5,14 @@ import { roundLabel, compareRounds } from '../halbserie.js';
 import { matchState, currentSpieltag, needsPolling } from '../openliga.js';
 
 /** Ergebnisse + Spieltage einer Halbserie aus API-Spielen ableiten (Fallback: Ergebnisse aus der Excel-Datei). */
-export function resolveResults(round, apiMatches, { live = false } = {}) {
+export function resolveResults(round, apiMatches, { live = false, completeDaysOnly = false } = {}) {
   if (round.kind === 'chronik') { // Punkte je Spieltag stehen direkt bei den Spielern
     return { source: 'Chronik (Punkte je Spieltag)', spieltage: round.spieltage ?? [], results: [], matches: [] };
   }
   const byKey = new Map((apiMatches ?? []).map((m) => [m.key, m]));
   const inRound = round.order.map((o) => byKey.get(o.key)).filter(Boolean);
   if (inRound.length) {
-    return {
+    const out = {
       source: 'OpenLigaDB',
       spieltage: [...new Set(inRound.map((m) => m.spieltag))].sort((a, b) => a - b),
       // live: laufende Spiele zählen mit ihrem Zwischenstand (vorläufig), beendete mit dem Endstand
@@ -23,6 +23,11 @@ export function resolveResults(round, apiMatches, { live = false } = {}) {
       }),
       matches: inRound,
     };
+    if (completeDaysOnly) { // Bestenliste: erst nach einem vollständig beendeten Spieltag aktualisieren
+      const open = new Set(inRound.filter((m) => !m.finished).map((m) => m.spieltag));
+      out.results = out.results.filter((r) => !open.has(r.spieltag));
+    }
+    return out;
   }
   const blocks = [...new Set(round.order.map((o) => o.block))].sort((a, b) => a - b);
   return {

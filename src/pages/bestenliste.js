@@ -20,12 +20,12 @@ export async function renderBestenliste(app, session) {
   const played = []; // { liga, rows } je Halbserie
   for (const round of full.filter(Boolean)) {
     const api = await loadSeason(round.jahr);
-    const { spieltage, results } = resolveResults(round, api?.matches);
+    const { spieltage, results } = resolveResults(round, api?.matches, { completeDaysOnly: true });
     played.push({ liga: round.liga ?? null, rows: buildTable(round.players, results, spieltage) });
   }
-  // Gesamt = alle Halbserien; Liga 2 = Halbserien mit Liga 2; Liga 1 = alle übrigen (Liga 1 und Halbserien ohne Ligaangabe).
-  const SCOPES = { gesamt: 'Gesamt', l1: 'Liga 1', l2: 'Liga 2' };
-  const inScope = (r, scope) => scope === 'gesamt' || (scope === 'l2' ? r.liga === 2 : r.liga !== 2);
+  // Liga 2 = Halbserien mit Liga 2; Liga 1 = alle übrigen (Liga 1 und Halbserien ohne Ligaangabe).
+  const SCOPES = { l1: 'Liga 1', l2: 'Liga 2' };
+  const inScope = (r, scope) => scope === 'l2' ? r.liga === 2 : r.liga !== 2;
   const aggregate = (scope) => {
     const agg = new Map();
     let n = 0;
@@ -41,7 +41,7 @@ export async function renderBestenliste(app, session) {
     }
     return { list: [...agg.values()].map((a) => ({ ...a, schnitt: a.total / a.teilnahmen })), halbserien: n };
   };
-  let scope = 'gesamt';
+  let scope = 'l1';
   let all = [];
   let nRounds = 0;
   const byName = (a, b) => a.name.localeCompare(b.name, 'de');
@@ -66,7 +66,7 @@ export async function renderBestenliste(app, session) {
     ({ list: all, halbserien: nRounds } = aggregate(scope));
     const rows = body();
     app.innerHTML = `<div class="gut head"><div class="hl"><h1 class="plain">Bestenliste</h1>
-    <div class="meta">${scope === 'gesamt' ? 'Alle Spieltage und Halbserien' : SCOPES[scope]} · ${nRounds} Halbserien · ${rows.length} Mitglieder</div></div>
+    <div class="meta">${SCOPES[scope]} · ${nRounds} Halbserien · ${rows.length} Mitglieder</div></div>
     <div class="seg" role="group" aria-label="Liga">${Object.entries(SCOPES).map(([k, l]) => `<button data-scope="${k}" aria-pressed="${k === scope}">${l}</button>`).join('')}</div></div>
     ${rows.length ? `<div class="wrap"><table class="best-tbl"><thead><tr><th class="c1">#</th>${th('name', 'c2', 'Name')}
       ${th('teilnahmen', 'stat', 'Teilnahmen')}${th('schnitt', 'stat', 'Schnitt')}${th('total', 'ct', 'Pkt')}</tr></thead><tbody>${rows.map((r) => `
