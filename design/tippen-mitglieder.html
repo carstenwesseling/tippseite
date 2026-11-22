@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Mitglieder verwalten</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tippen-base.css">
+<link rel="stylesheet" href="tippen.css">
+</head>
+<body>
+<header class="bar"><div class="gut"><div class="bar-in">
+  <a class="brand" href="index.html"><i></i>Tippspiel</a>
+  <nav><a href="index.html">Halbserien</a><a href="tippen-a.html">Tippen</a><a href="tippen-mitglieder.html" aria-current="page">Verwaltung</a></nav>
+  <span class="avatar">CW</span>
+</div></div></header>
+<main>
+  <div class="mem-head gut" style="margin-top:12px">
+    <h1>Mitglieder Rückrunde 26/27</h1>
+    <span class="count"><b id="n">0</b> von <span id="all">0</span> tippen mit</span>
+  </div>
+  <p class="muted gut" style="margin:0 0 4px">Haken = tippt in der neuen Halbserie mit und erscheint in der Namensliste des Tippformulars. Vorbelegt sind alle, die in der aktuellen Halbserie mitgetippt haben.</p>
+
+  <div class="card" style="margin-top:12px"><h3>Neues Mitglied anlegen</h3>
+    <form class="add" id="add" autocomplete="off"><input id="name" placeholder="Name, z. B. Sabine" maxlength="30" aria-label="Name des neuen Mitglieds"><button class="primary" type="submit">Hinzufügen</button></form>
+    <div class="addmsg" id="msg" role="status"></div></div>
+
+  <div class="tools gut">
+    <button type="button" id="cur">Nur aktuelle Mitspieler</button>
+    <button type="button" id="all-on">Alle wählen</button>
+    <button type="button" id="all-off">Keine</button>
+  </div>
+  <ul class="mlist" id="list"></ul>
+  <p class="legend gut">Fertig? <a href="tippen-a.html">Zum Tippformular A</a> · <a href="tippen-b.html">B</a> · <a href="tippen-c.html">C</a> &nbsp;·&nbsp; <button class="linkbtn" id="reset" type="button" style="text-decoration:underline">Demo zurücksetzen</button></p>
+</main>
+<script src="tippen.js"></script>
+<script>
+const { store, esc, byName } = Tippen;
+let list = store.members();
+const $ = (s) => document.querySelector(s);
+const save = () => store.saveMembers(list);
+function draw() {
+  list.sort(byName);
+  $('#list').innerHTML = list.map((m, i) => `<li class="${m.aktiv ? '' : 'off'}"><label class="gut"><input type="checkbox" data-i="${i}" ${m.aktiv ? 'checked' : ''}>
+    <span class="nm">${esc(m.name)}</span>${m.neu ? '<span class="badge new">neu</span>' : m.aktuell ? '<span class="badge">tippt aktuell mit</span>' : '<span class="badge old">früher</span>'}</label>
+    ${m.neu ? `<button class="rm" data-rm="${i}" aria-label="${esc(m.name)} entfernen">×</button>` : ''}</li>`).join('');
+  $('#n').textContent = list.filter((m) => m.aktiv).length; $('#all').textContent = list.length;
+}
+$('#list').addEventListener('change', (e) => { const i = e.target.dataset.i; if (i == null) return; list[i].aktiv = e.target.checked; save(); draw(); });
+$('#list').addEventListener('click', (e) => { const i = e.target.dataset.rm; if (i == null) return; list.splice(i, 1); save(); draw(); });
+$('#add').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $('#name').value.trim().replace(/\s+/g, ' '), msg = $('#msg');
+  msg.className = 'addmsg';
+  if (!name) { msg.textContent = 'Bitte einen Namen eingeben.'; msg.classList.add('err'); return; }
+  if (list.some((m) => m.name.toLowerCase() === name.toLowerCase())) { msg.textContent = `„${name}“ gibt es schon – Haken setzen genügt.`; msg.classList.add('err'); return; }
+  list.push({ name, aktiv: true, aktuell: false, neu: true }); save(); draw();
+  $('#name').value = ''; msg.textContent = `${name} wurde angelegt und tippt mit.`; $('#name').focus();
+});
+$('#cur').onclick = () => { list.forEach((m) => { m.aktiv = !!m.aktuell; }); save(); draw(); };
+$('#all-on').onclick = () => { list.forEach((m) => { m.aktiv = true; }); save(); draw(); };
+$('#all-off').onclick = () => { list.forEach((m) => { m.aktiv = false; }); save(); draw(); };
+$('#reset').onclick = () => { store.resetMembers(); list = store.members(); draw(); };
+draw();
+</script>
+</body>
+</html>

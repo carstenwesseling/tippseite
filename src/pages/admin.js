@@ -2,6 +2,7 @@ import { parseWorkbook } from '../excel.js';
 import { saveRound, deleteRound, listRounds, getSeasonMatches } from '../db.js';
 import { logout } from '../firebase.js';
 import { esc, $ } from '../util.js';
+import { renderMembers, renderTipping } from './members.js';
 
 export async function renderAdmin(app, session) {
   if (!session.user) { app.innerHTML = '<div class="msg warn">Bitte oben rechts mit Google anmelden.</div>'; return; }
@@ -17,6 +18,8 @@ export async function renderAdmin(app, session) {
   app.innerHTML = `
     <h1>Verwaltung</h1>
     <div class="row" style="margin-inline:max(16px,env(safe-area-inset-left,0px))"><span class="muted">${esc(session.user.email)}</span><button id="logout">Abmelden</button></div>
+    <div id="tipping"></div>
+    <div id="members"></div>
     <div class="card"><h3>Excel hochladen</h3>
       <div class="row">
         <input type="file" id="file" accept=".xlsx,.xlsm,.xls" />
@@ -33,6 +36,9 @@ export async function renderAdmin(app, session) {
     </div>`;
 
   $('#logout').addEventListener('click', () => logout());
+  const showTipping = () => renderTipping($('#tipping'), () => { showTipping(); renderMembers($('#members')); });
+  showTipping();
+  renderMembers($('#members'));
 
   let parsed = null;
   const preview = $('#preview');

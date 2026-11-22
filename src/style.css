@@ -138,3 +138,69 @@ a.round strong { font: 700 22px/1.1 var(--display); text-transform: uppercase; l
 .foot { padding-block: 8px; color: var(--muted); font-size: 12px; }
 
 @media (min-width: 480px) { .bar-in { gap: 14px; } nav { gap: 14px; } }
+
+/* ---- Tippformular (Vorschlag B "Spielfeld") ---- */
+button.primary { background: var(--pitch); color: var(--pitch-ink); border-color: var(--pitch); font-weight: 600; }
+button.primary:disabled, button:disabled { opacity: .45; cursor: not-allowed; }
+.tp { --surface: var(--g-bg); --ink: var(--g-ink); --muted: var(--g-muted); --line: var(--g-line); --pitch: var(--g-on); background: var(--g-bg); color: var(--g-ink); min-height: calc(100dvh - 90px); padding-bottom: 8px; }
+.tp { margin-top: -12px; }
+.tp-head h1 { margin: 0; padding-block: 14px 8px; }
+@media (min-width: 760px) { .tp { max-width: 760px; margin: 0 auto; border-radius: 6px; } }
+.tp .topbox { position: sticky; top: calc(49px + env(safe-area-inset-top, 0px)); z-index: 10; background: var(--g-row); border-block: 1px solid var(--g-line); display: grid; gap: 6px; padding-block: 8px; }
+@media (min-width: 640px) { .tp .topbox { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: center; } }
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.who label { flex: none; font-weight: 600; }
+.who select { flex: 1; min-width: 0; height: 40px; font-size: 16px; background: #fff; color: #101a14; border-color: transparent; }
+.prog { display: flex; align-items: center; gap: 10px; }
+.pbar { flex: 1; height: 6px; border-radius: 3px; background: #ffffff33; overflow: hidden; }
+.pbar i { display: block; height: 100%; width: 0; background: #fff; transition: width .2s; }
+.pnum { font: 600 13px/1 var(--text); font-variant-numeric: tabular-nums; color: var(--g-muted); white-space: nowrap; }
+.pnum b { color: #fff; }
+.tp .send { background: var(--card); color: var(--card-ink); border-color: var(--card); height: 36px; padding-inline: 16px; white-space: nowrap; }
+.tp .need { padding-block: 10px; color: #fff; font-weight: 500; font-size: 13.5px; }
+.warnline { color: var(--card); } .okline { color: #fff; font-weight: 600; }
+.tp .dh { display: flex; align-items: center; justify-content: space-between; margin: 0; padding-block: 18px 6px; font: 700 28px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.tp .cnt { font: 600 13px/1 var(--text); color: var(--g-muted); font-variant-numeric: tabular-nums; }
+.tp .full .cnt { color: var(--card-ink); background: var(--card); padding: 5px 7px; border-radius: 3px; transform: rotate(-3deg); }
+.sp { scroll-margin-top: 130px; }
+.tp .ms { margin-inline: max(16px, env(safe-area-inset-left, 0px)); border-top: 1px solid var(--g-line); }
+.tp .m { display: grid; grid-template-columns: minmax(0, 1fr) 46px 8px 46px minmax(0, 1fr); align-items: center; gap: 0 6px; min-height: 56px; border-bottom: 1px solid var(--g-line); }
+.tp .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 17px/1.1 var(--text); }
+.tp .t.h { text-align: right; }
+.tp .col { text-align: center; color: var(--g-muted); font-weight: 700; }
+.tip { text-align: center; padding: 0; width: 46px; height: 40px; background: #fff; color: #101a14; border: 0; border-radius: 4px; font: 700 26px/1 var(--display); font-variant-numeric: tabular-nums; box-shadow: 0 2px 0 #00000040; -moz-appearance: textfield; }
+.tip:focus { outline: 0; box-shadow: 0 0 0 3px var(--card); }
+.tip:disabled { opacity: .5; }
+.tp .endsend { display: grid; gap: 10px; padding-block: 18px; }
+.tp .big { width: 100%; height: 48px; font-size: 16px; }
+.tp button.big:not(.ghost) { background: var(--card); color: var(--card-ink); border-color: var(--card); font-weight: 600; }
+.tp .ghost { background: transparent; color: #fff; border-color: #ffffff66; }
+.mailbox { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--g-line); border-radius: 6px; background: var(--g-row); }
+.mailbox[hidden] { display: none; }
+.mailbox input[type=email] { height: 42px; font-size: 16px; background: #fff; color: #101a14; border-color: transparent; }
+.chk { display: flex; align-items: center; gap: 10px; font-weight: 500; cursor: pointer; }
+.chk input { width: 20px; height: 20px; margin: 0; padding: 0; accent-color: var(--pitch); flex: none; }
+
+/* ---- Mitgliederverwaltung ---- */
+.add { display: flex; gap: 8px; margin-block: 10px; }
+.add input { flex: 1; min-width: 0; height: 44px; font-size: 16px; }
+.add button { height: 44px; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 10px; }
+.tools button { height: 34px; font-size: 13px; }
+.count { font: 600 13px/1 var(--text); color: var(--muted); font-variant-numeric: tabular-nums; }
+.count b { color: var(--pitch); font-size: 15px; }
+.mlist { list-style: none; margin: 0 -14px; padding: 0; border-block: 1px solid var(--line); }
+.mlist li { border-bottom: 1px solid var(--line); }
+.mlist li:last-child { border-bottom: 0; }
+.mrow { display: flex; align-items: center; }
+.mrow > label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 50px; padding-block: 6px; cursor: pointer; padding-inline: 14px; }
+.mlist input[type=checkbox] { flex: none; width: 24px; height: 24px; margin: 0; padding: 0; accent-color: var(--pitch); }
+.mlist .nm { font-weight: 600; font-size: 16px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mlist li.off .nm { color: var(--muted); font-weight: 500; }
+.badge { flex: none; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 4px; background: var(--pitch-soft); color: var(--ink); }
+.badge.new { background: var(--card); color: var(--card-ink); }
+.badge.old { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 500; }
+.mlist .rm { flex: none; width: 40px; height: 40px; border: 0; background: none; color: var(--muted); font-size: 20px; padding: 0; }
+.mx { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 0 14px 10px 50px; }
+.mx input[type=email] { flex: 1; min-width: 180px; height: 38px; font-size: 16px; }
+.mx .chk { font-size: 13.5px; } .mx .chk input { width: 18px; height: 18px; }

@@ -43,3 +43,13 @@ export const isKnownTeam = (name) => lookup.has(clean(name));
 
 /** Schlüssel eines Spiels */
 export const matchKey = (home, away) => `${teamKey(home)}|${teamKey(away)}`;
+
+// Kurznamen für Tippformular und Excel-Tippschein (unbekannte Vereine behalten den vollen Namen).
+const SHORT = {
+  bayern: 'Bayern', leipzig: 'Leipzig', hoffenheim: 'Hoffenheim', leverkusen: 'Leverkusen', bremen: 'Bremen',
+  frankfurt: 'Frankfurt', augsburg: 'Augsburg', freiburg: 'Freiburg', koeln: 'Köln', mainz: 'Mainz',
+  hamburg: 'Hamburg', gladbach: 'Gladbach', stuttgart: 'Stuttgart', union: 'Union', dortmund: 'Dortmund',
+  stpauli: 'St. Pauli', wolfsburg: 'Wolfsburg', heidenheim: 'Heidenheim', schalke: 'Schalke', hertha: 'Hertha',
+  bochum: 'Bochum', darmstadt: 'Darmstadt', kiel: 'Kiel',
+};
+export const shortName = (name) => SHORT[teamKey(name)] ?? String(name).trim();

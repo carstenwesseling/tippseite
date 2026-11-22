@@ -4,6 +4,7 @@ import { esc, $ } from './util.js';
 import { renderHome } from './pages/home.js';
 import { renderTable } from './pages/table.js';
 import { renderAdmin } from './pages/admin.js';
+import { renderTippen } from './pages/tippen.js';
 
 export const session = { user: null, isAdmin: false };
 
@@ -20,6 +21,7 @@ async function route() {
   app.innerHTML = '<p class="muted">Lade …</p>';
   try {
     if (page === 'admin') await renderAdmin(app, session);
+    else if (page === 'tippen') await renderTippen(app, session);
     else if (page === 'runde' && id) await renderTable(app, session, id);
     else await renderHome(app);
   } catch (e) {
@@ -43,8 +45,10 @@ function renderUser() {
 
 function markNav() {
   const admin = location.hash.startsWith('#/admin');
+  const tippen = location.hash.startsWith('#/tippen');
   $('#nav-admin').toggleAttribute('aria-current', admin);
-  $('#nav-home').toggleAttribute('aria-current', !admin);
+  $('#nav-tippen').toggleAttribute('aria-current', tippen);
+  $('#nav-home').toggleAttribute('aria-current', !admin && !tippen);
 }
 
 onUser(async (user) => {

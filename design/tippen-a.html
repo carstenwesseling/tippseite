@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Vorschlag A: Anstoß</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tippen-base.css">
+<link rel="stylesheet" href="tippen.css">
+<style>
+/* Vorschlag A "Anstoß": hell und ruhig, wie die Tabellenansicht. Name oben, Spieltag-Sprungleiste klebt unter der Kopfzeile, Fortschritt + Abschicken unten am Daumen. */
+.tp-a .topbox { display: contents; }
+.tp-a .who { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0 max(16px, env(safe-area-inset-left, 0px)) 10px; }
+.tp-a .chips { position: sticky; top: calc(49px + env(safe-area-inset-top, 0px)); z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.tp-a .dh { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0 6px; font: 700 22px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.tp-a .ms { background: var(--surface); border-block: 1px solid var(--line); }
+@media (min-width: 760px) { .tp-a .ms { border: 1px solid var(--line); border-radius: 6px; margin-inline: max(16px, env(safe-area-inset-left, 0px)); } }
+.tp-a .m { display: grid; grid-template-columns: minmax(0, 1fr) 44px 10px 44px minmax(0, 1fr); align-items: center; gap: 0 6px; padding: 5px max(14px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--line); min-height: 54px; }
+.tp-a .m:last-child { border-bottom: 0; }
+.tp-a .t { font-weight: 500; font-size: 15px; }
+.tp-a .t.h { text-align: right; }
+.tp-a .col { text-align: center; color: var(--muted); font-weight: 600; }
+.tp-a .tip { background: var(--bg); }
+.tp-a .full .dh .cnt::before { content: "✓ "; }
+.tp-a .dock { position: sticky; bottom: 0; z-index: 15; background: var(--surface); border-top: 1px solid var(--line); padding-block: 8px calc(8px + env(safe-area-inset-bottom, 0px)); margin-top: 16px; }
+.tp-a .dock .prog { max-width: 1200px; margin: 0 auto; }
+
+</style>
+</head>
+<body>
+<header class="bar"><div class="gut"><div class="bar-in">
+  <a class="brand" href="index.html"><i></i>Tippspiel</a>
+  <nav><a href="index.html">Halbserien</a><a href="tippen-a.html" aria-current="page">Tippen</a><a href="tippen-mitglieder.html">Verwaltung</a></nav>
+  <span class="avatar">CW</span>
+</div></div></header>
+<main>
+  <h1 class="gut" style="margin-inline:0">Rückrunde 26/27 tippen</h1>
+  <div id="app"></div>
+</main>
+<script src="tippen.js"></script>
+<script>Tippen.mount({ root: document.getElementById('app'), variant: 'a', layout: { top: ['who', 'chips'], dock: ['prog'] } });</script>
+</body>
+</html>
