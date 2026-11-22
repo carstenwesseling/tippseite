@@ -100,3 +100,8 @@ export const canonName = (n) => String(n ?? '').normalize('NFC').replace(/\s*,\s
 
 /** Schlüssel für den Namensvergleich: Groß-/Kleinschreibung, Leerzeichen und "Name, V." = "Name,V." egal. */
 export const normName = (n) => String(n ?? '').normalize('NFC').toLowerCase().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ').trim();
+
+// Dieselbe Person unter mehreren Schreibweisen/Namen: normalisierter Name -> gültiger Name.
+const SAME_PERSON = { 'kuchinke,st.': 'Reimann,St.' };
+/** Wandelt bekannte Namensvarianten desselben Mitglieds in den gültigen Namen um (sonst unverändert). */
+export const samePerson = (n) => SAME_PERSON[normName(n)] ?? n;
