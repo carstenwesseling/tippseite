@@ -111,7 +111,13 @@ export function parseWorkbook(data, { fallbackName, rename = {} } = {}) {
 
   if (!players.length) warnings.push('Keine Spielerblätter gefunden.');
   const counts = new Set(players.map((p) => p.matchCount));
-  if (counts.size > 1) warnings.push(`Spielerblätter haben unterschiedlich viele Spiele: ${[...counts].join(', ')}`);
+  if (counts.size > 1) {
+    const freq = new Map();
+    players.forEach((p) => freq.set(p.matchCount, (freq.get(p.matchCount) ?? 0) + 1));
+    const usual = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const odd = players.filter((p) => p.matchCount !== usual).map((p) => `${p.name} (${p.matchCount})`);
+    warnings.push(`Die meisten Blätter haben ${usual} Spiele, abweichend: ${odd.join(', ')}`);
+  }
 
   return { players, ignored, warnings, order: order ?? [], excelResults, teams: [...teams] };
 }
