@@ -1,12 +1,13 @@
 import { getRound, getSeasonMatches, listRounds } from '../db.js';
 import { buildTable } from '../scoring.js';
-import { esc, $ } from '../util.js';
+import { esc, $, enableSort } from '../util.js';
 import { roundLabel, compareRounds } from '../halbserie.js';
+import { matchState, currentSpieltag, needsPolling } from '../openliga.js';
 
 /** Ergebnisse + Spieltage einer Halbserie aus API-Spielen ableiten (Fallback: Ergebnisse aus der Excel-Datei). */
-export function resolveResults(round, apiMatches) {
+export function resolveResults(round, apiMatches, { live = false } = {}) {
   if (round.kind === 'chronik') { // Punkte je Spieltag stehen direkt bei den Spielern
-    return { source: 'Chronik (Punkte je Spieltag)', spieltage: round.spieltage ?? [], results: [] };
+    return { source: 'Chronik (Punkte je Spieltag)', spieltage: round.spieltage ?? [], results: [], matches: [] };
   }
   const byKey = new Map((apiMatches ?? []).map((m) => [m.key, m]));
   const inRound = round.order.map((o) => byKey.get(o.key)).filter(Boolean);
@@ -14,7 +15,13 @@ export function resolveResults(round, apiMatches) {
     return {
       source: 'OpenLigaDB',
       spieltage: [...new Set(inRound.map((m) => m.spieltag))].sort((a, b) => a - b),
-      results: inRound.filter((m) => m.finished).map((m) => ({ key: m.key, spieltag: m.spieltag, h: m.h, g: m.g })),
+      // live: laufende Spiele zählen mit ihrem Zwischenstand (vorläufig), beendete mit dem Endstand
+      results: inRound.flatMap((m) => {
+        if (m.finished) return [{ key: m.key, spieltag: m.spieltag, h: m.h, g: m.g }];
+        if (live && matchState(m) === 'live') return [{ key: m.key, spieltag: m.spieltag, h: m.lh ?? 0, g: m.lg ?? 0, live: true }];
+        return [];
+      }),
+      matches: inRound,
     };
   }
   const blocks = [...new Set(round.order.map((o) => o.block))].sort((a, b) => a - b);
@@ -22,6 +29,7 @@ export function resolveResults(round, apiMatches) {
     source: 'Excel-Datei (Fallback, Spieltag = Block)',
     spieltage: blocks,
     results: round.excelResults.map((r) => ({ key: r.key, spieltag: r.block, h: r.h, g: r.g })),
+    matches: [],
   };
 }
 
@@ -34,17 +42,34 @@ const isMe = (session, name) => {
   return Boolean(first) && name.toLowerCase() === first;
 };
 
+let pollTimer = null;
+let pollToken = 0;
+/** Beendet die automatische Aktualisierung (beim Seitenwechsel). */
+export function stopPolling() { clearTimeout(pollTimer); pollTimer = null; pollToken++; }
+
+const POLL_MS = 60 * 1000; // laufender Spieltag: jede Minute
+const IDLE_MS = 5 * 60 * 1000; // Spiele stehen noch aus: nur die Anzeige neu bewerten
+
 export async function renderTable(app, session, id) {
+  stopPolling();
+  const token = pollToken;
   const [round, rounds] = await Promise.all([getRound(id), listRounds().catch(() => [])]);
   if (!round) { app.innerHTML = '<div class="msg err">Halbserie nicht gefunden.</div>'; return; }
   let api = null, info = '';
-  if (round.kind !== 'chronik') try {
-    api = await getSeasonMatches(round.jahr, { canWrite: session.isAdmin });
-    info = `Ergebnisse: ${api.source}, Stand ${new Date(api.updatedAt).toLocaleString('de-DE')}`;
-  } catch (e) {
-    info = `OpenLigaDB nicht erreichbar (${e.message})`;
-  }
-  const { source, spieltage, results } = resolveResults(round, api?.matches);
+  const load = async (live) => {
+    try {
+      api = await getSeasonMatches(round.jahr, { canWrite: session.isAdmin, live });
+      info = `Ergebnisse: ${api.source}, Stand ${new Date(api.updatedAt).toLocaleString('de-DE')}`;
+    } catch (e) {
+      info = `OpenLigaDB nicht erreichbar (${e.message})`;
+    }
+  };
+  if (round.kind !== 'chronik') await load(false);
+
+  const draw = () => {
+  const { source, spieltage, results, matches } = resolveResults(round, api?.matches, { live: true });
+  const cur = currentSpieltag(matches); // Spieltag läuft: Spalte farbig markieren, bis das letzte Spiel beendet ist
+  const liveCount = results.filter((r) => r.live).length;
   const table = buildTable(round.players, results, spieltage);
 
   const played = new Set(round.kind === 'chronik'
@@ -58,22 +83,22 @@ export async function renderTable(app, session, id) {
   const meta = round.kind === 'chronik'
     ? `Chronik · ${spieltage.length} Spieltage · ${round.players.length} Mitspieler`
     : lastPlayed
-    ? `Stand ${stand} · ${results.length} Spiele · Spieltag ${lastPlayed} von ${Math.max(...spieltage)}`
+    ? `Stand ${stand} · ${results.length} Spiele · Spieltag ${lastPlayed} von ${Math.max(...spieltage)}${cur !== null ? ` · Spieltag ${cur} läuft${liveCount ? ` (${liveCount} live)` : ''}` : ''}`
     : `Stand ${stand} · noch keine Ergebnisse`;
 
   const options = [...(rounds.length ? rounds : [round])].sort(compareRounds).map((r) => `<option value="${esc(r.id)}"${r.id === id ? ' selected' : ''}>${esc(roundLabel(r))}</option>`).join('');
 
-  const tableHtml = `<table><thead><tr><th class="c1">#</th><th class="c2">Name</th>${spieltage.map((d) => `<th class="day">${d}</th>`).join('')}
+  const tableHtml = `<table><thead><tr><th class="c1">#</th><th class="c2">Name</th>${spieltage.map((d) => `<th class="day${d === cur ? ' cur' : ''}">${d}</th>`).join('')}
     <th class="stat sep">2er</th><th class="stat">1er</th><th class="ct">Pkt</th></tr></thead><tbody>${table.map((r) => `
     <tr class="${r.rank <= 3 ? 'top' : ''} ${isMe(session, r.name) ? 'me' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
-    ${spieltage.map((d) => { const v = val(r, d); return v == null ? `<td class="day pend">${r.totalOnly ? '-' : '·'}</td>` : `<td class="day ${isBest(v, d) ? 'best' : ''}">${v}</td>`; }).join('')}
+    ${spieltage.map((d) => { const v = val(r, d); const c = d === cur ? ' cur' : ''; return v == null ? `<td class="day pend${c}">${r.totalOnly ? '-' : '·'}</td>` : `<td class="day ${isBest(v, d) ? 'best' : ''}${c}">${v}</td>`; }).join('')}
     <td class="stat sep">${r.zwei ?? '–'}</td><td class="stat">${r.eins ?? '–'}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
 
   const listHtml = table.map((r) => {
-    const spark = spieltage.map((d) => { const v = val(r, d); return v == null ? '<span class="sc n"><i></i><em></em></span>'
-      : `<span class="sc ${isBest(v, d) ? 'b' : ''}"><i style="height:${Math.max(2, v / max * 24)}px"></i><em>${v}</em></span>`; }).join('');
-    const chart = spieltage.map((d) => { const v = val(r, d); return v == null ? '<div class="n"><span>0</span><b></b></div>'
-      : `<div class="${isBest(v, d) ? 'b' : ''}"><span>${v}</span><b style="height:${Math.max(3, v / max * 64)}px"></b></div>`; }).join('');
+    const spark = spieltage.map((d) => { const v = val(r, d); const c = d === cur ? ' cur' : ''; return v == null ? `<span class="sc n${c}"><i></i><em></em></span>`
+      : `<span class="sc ${isBest(v, d) ? 'b' : ''}${c}"><i style="height:${Math.max(2, v / max * 24)}px"></i><em>${v}</em></span>`; }).join('');
+    const chart = spieltage.map((d) => { const v = val(r, d); const c = d === cur ? ' cur' : ''; return v == null ? `<div class="n${c}"><span>0</span><b></b></div>`
+      : `<div class="${isBest(v, d) ? 'b' : ''}${c}"><span>${v}</span><b style="height:${Math.max(3, v / max * 64)}px"></b></div>`; }).join('');
     return `<div class="item ${isMe(session, r.name) ? 'me' : ''}" data-open="false">
       <button class="lrow" aria-expanded="false" style="padding-inline:max(16px,env(safe-area-inset-left,0px))">
         <span class="rank ${r.rank === 1 ? 'lead' : ''}">${r.rank}</span>
@@ -82,11 +107,16 @@ export async function renderTable(app, session, id) {
         <span class="pts">${r.total}</span>
       </button>
       <div class="detail gut"><div class="chart">${chart}</div>
-        <div class="days">${spieltage.map((d) => `<div>${d}</div>`).join('')}</div>
+        <div class="days">${spieltage.map((d) => `<div class="${d === cur ? 'cur' : ''}">${d}</div>`).join('')}</div>
         <div class="facts"><span><b>${r.zwei ?? '–'}</b>exakt (2 Pkt)</span><span><b>${r.eins ?? '–'}</b>Tendenz (1 Pkt)</span></div></div>
     </div>`;
   }).join('') + `<div class="gut lg"><span><i></i>Spieltagsbester (meiste Punkte am Spieltag)</span><span>Zahl unter dem Balken = Punkte</span></div>`;
 
+  const prev = {
+    open: [...app.querySelectorAll('.item')].map((el, i) => (el.dataset.open === 'true' ? i : -1)).filter((i) => i >= 0),
+    left: app.querySelector('.wrap')?.scrollLeft ?? 0,
+    top: window.scrollY,
+  };
   app.innerHTML = `
     <div class="gut head">
       <div class="hl">
@@ -97,7 +127,7 @@ export async function renderTable(app, session, id) {
     </div>
     <section class="view" id="tabelle" aria-label="Tabelle">
       <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar">${tableHtml}</div>
-      <div class="gut hint"><span><i></i>Tagesbester</span><span>Seitlich wischen für alle Spieltage</span></div>
+      <div class="gut hint"><span><i></i>Tagesbester</span>${cur !== null ? `<span><i class="curkey"></i>Spieltag ${cur} läuft – Punkte vorläufig, Aktualisierung jede Minute</span>` : ''}<span>Seitlich wischen für alle Spieltage</span></div>
     </section>
     <section class="view" id="liste" aria-label="Liste" hidden><div class="list" id="list">${listHtml}</div></section>
     <div class="gut foot">${esc(info)} · Quelle: ${esc(source)}</div>`;
@@ -116,4 +146,30 @@ export async function renderTable(app, session, id) {
     const it = b.parentElement, open = it.dataset.open !== 'true';
     it.dataset.open = open; b.setAttribute('aria-expanded', open);
   });
+  // Zustand nach automatischer Aktualisierung wiederherstellen
+  app.querySelectorAll('.item').forEach((el, i) => {
+    if (prev.open.includes(i)) { el.dataset.open = 'true'; el.querySelector('.lrow').setAttribute('aria-expanded', 'true'); }
+  });
+  const wrap = app.querySelector('.wrap');
+  if (wrap) wrap.scrollLeft = prev.left;
+  window.scrollTo(0, prev.top);
+  enableSort(app);
+  };
+
+  draw();
+
+  // Automatische Aktualisierung: bei laufendem Spieltag jede Minute neue Ergebnisse holen und Punkte neu berechnen.
+  const schedule = () => {
+    if (token !== pollToken || round.kind === 'chronik') return;
+    const ms = resolveResults(round, api?.matches).matches;
+    if (!ms.some((m) => !m.finished)) return; // alles beendet
+    pollTimer = setTimeout(async () => {
+      if (token !== pollToken) return;
+      if (needsPolling(resolveResults(round, api?.matches).matches)) await load(true);
+      if (token !== pollToken) return;
+      draw();
+      schedule();
+    }, needsPolling(ms) ? POLL_MS : IDLE_MS);
+  };
+  schedule();
 }

@@ -103,14 +103,16 @@ export async function deleteAllData() {
  * Liefert die Spiele einer Saison. Frischer Cache -> Cache; sonst API.
  * Schreiben in den Cache nur, wenn `canWrite` (Admin) – Besucher nutzen die API-Daten nur im Speicher.
  */
-export async function getSeasonMatches(jahr, { canWrite = false, force = false } = {}) {
+export async function getSeasonMatches(jahr, { canWrite = false, force = false, live = false } = {}) {
   const ref = doc(db, 'results', String(jahr));
   let cached = null;
   try {
     const s = await getDoc(ref);
     if (s.exists()) cached = s.data();
   } catch { /* Cache optional */ }
-  if (cached && !force && Date.now() - cached.updatedAt < STALE_MS) return { ...cached, source: 'cache' };
+  // live: laufender Spieltag – kurzer Cache (45 s), damit ein Minutentakt tatsächlich frische Daten holt
+  const maxAge = live ? 45 * 1000 : STALE_MS;
+  if (cached && !force && Date.now() - cached.updatedAt < maxAge) return { ...cached, source: 'cache' };
   try {
     const matches = await fetchSeason(jahr);
     const fresh = { matches, updatedAt: Date.now() };

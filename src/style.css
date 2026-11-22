@@ -171,3 +171,9 @@ input[type="file"] { max-width: 100%; }
 .rnote { display: block; color: #8a5a00; }
 .liga2 { background: color-mix(in srgb, var(--muted) 16%, var(--surface)); }
 .row.liga2 { padding: 4px 8px; border-radius: 4px; }
+
+/* Laufender Spieltag: Spalte farbig markiert, bis das letzte Spiel beendet ist */
+.wrap th.day.cur, .wrap td.day.cur { background: color-mix(in srgb, var(--pitch) 16%, var(--surface)); }
+.wrap th.day.cur { color: var(--ink); box-shadow: inset 0 2px 0 var(--pitch); }
+.sc.cur, .chart .cur, .days .cur { background: color-mix(in srgb, var(--pitch) 16%, transparent); border-radius: 3px; }
+.curkey { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--pitch) 35%, var(--surface)); margin-right: 6px; vertical-align: -1px; }
