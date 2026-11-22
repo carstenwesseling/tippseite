@@ -305,3 +305,19 @@ export const queueExcelMail = ({ tipperId: id, to, subject, text, filename, base
     tipperId: id, to: [to],
     message: { subject, text, attachments: [{ filename, content: base64, encoding: 'base64' }] },
   });
+
+// ---- Nächste Tippfete ----
+// settings/tippfete: { datum: 'YYYY-MM-DD', uhrzeit: 'HH:MM', ort: Freitext } öffentlich lesbar, schreiben nur Admins.
+const TIPPFETE = () => doc(db, 'settings', 'tippfete');
+
+export async function getTippfete() {
+  const s = await getDoc(TIPPFETE());
+  const d = s.exists() ? s.data() : null;
+  return d?.datum ? d : null;
+}
+
+/** Speichert den Termin; ohne Datum, Uhrzeit und Ort wird er entfernt. */
+export async function saveTippfete({ datum, uhrzeit, ort }) {
+  if (!datum && !uhrzeit && !ort) { await deleteDoc(TIPPFETE()); return; }
+  await setDoc(TIPPFETE(), { datum: datum ?? '', uhrzeit: uhrzeit ?? '', ort: (ort ?? '').trim(), updatedAt: Date.now() });
+}
