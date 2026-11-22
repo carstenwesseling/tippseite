@@ -247,3 +247,10 @@ button.primary:disabled, button:disabled { opacity: .45; cursor: not-allowed; }
 .mx { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 0 14px 10px 50px; }
 .mx input[type=email] { flex: 1; min-width: 180px; height: 38px; font-size: 16px; }
 .mx .chk { font-size: 13.5px; } .mx .chk input { width: 18px; height: 18px; }
+
+/* Bestenliste: Namen führen zur Detailansicht */
+.best-tbl .c2 a { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.best-tbl .c2 a:hover { text-decoration-color: var(--pitch); }
+.back, .mname { margin-inline: max(16px, env(safe-area-inset-left, 0px)); }
+.back { margin-block: 12px 4px; }
+.mname { margin-block: 0 10px; font: 700 26px/1.15 var(--display); text-transform: uppercase; letter-spacing: .02em; }
