@@ -175,5 +175,8 @@ input[type="file"] { max-width: 100%; }
 /* Laufender Spieltag: Spalte farbig markiert, bis das letzte Spiel beendet ist */
 .wrap th.day.cur, .wrap td.day.cur { background: color-mix(in srgb, var(--pitch) 16%, var(--surface)); }
 .wrap th.day.cur { background: var(--card); color: var(--card-ink); box-shadow: none; }
-.sc.cur, .chart .cur, .days .cur { background: color-mix(in srgb, var(--pitch) 16%, transparent); border-radius: 3px; }
+/* Liste: gleiche Markierung wie in der Tabelle – Spalte getönt, Spieltagsnummer gelb */
+.sc.cur, .chart .cur { background: #ffffff1f; border-radius: 3px; box-shadow: inset 0 3px 0 var(--card); }
+.days .cur { background: var(--card); color: var(--card-ink); font-weight: 700; border-radius: 3px; }
+.lg .curkey { background: var(--card); }
 .curkey { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--pitch) 35%, var(--surface)); margin-right: 6px; vertical-align: -1px; }
