@@ -94,3 +94,13 @@ describe('Liga als Teil der Halbserie', () => {
     expect(rs.sort(compareRounds).map((r) => r.liga)).toEqual([1, 2]);
   });
 });
+
+import { samePerson as _canon } from './halbserie.js';
+describe('samePerson', () => {
+  it('ordnet Kuchinke,St. dem Namen Reimann,St. zu', () => {
+    expect(_canon('Kuchinke,St.')).toBe('Reimann,St.');
+    expect(_canon('kuchinke, St.')).toBe('Reimann,St.');
+    expect(_canon('Reimann,St.')).toBe('Reimann,St.');
+    expect(_canon('Müller,R.')).toBe('Müller,R.');
+  });
+});

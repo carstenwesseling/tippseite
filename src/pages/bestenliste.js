@@ -2,7 +2,7 @@ import { getRound, getSeasonMatches, listRounds } from '../db.js';
 import { buildTable } from '../scoring.js';
 import { resolveResults } from './table.js';
 import { esc } from '../util.js';
-import { normName } from '../halbserie.js';
+import { normName, samePerson } from '../halbserie.js';
 import { computeOverview } from '../overview.js';
 import { pointsCardHtml } from './punkte.js';
 
@@ -88,7 +88,7 @@ export async function renderBestenliste(app, session) {
 
 /** Detailansicht eines Mitglieds (öffentlich): Punkte und Rang in allen Halbserien, wie in der Mitgliederverwaltung. */
 export async function renderBestenlisteMember(app, session, name) {
-  const key = normName(name);
+  const key = normName(samePerson(name));
   const overview = await computeOverview(await listRounds(), { canWrite: session.isAdmin });
   const played = overview.map((o) => ({ o, row: o.table.find((r) => normName(r.name) === key) })).filter((x) => x.row);
   const shown = played[0]?.row.name ?? name;
