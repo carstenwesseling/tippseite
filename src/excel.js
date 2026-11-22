@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { matchKey, isKnownTeam } from './teams.js';
+import { matchKey } from './teams.js';
 
 // Blätter, die keine Spielerblätter sind (Präfixe, Groß-/Kleinschreibung egal).
 const IGNORE_PREFIX = ['namen', 'ergebnisse', 'aktueller stand', 'bezahlt', 'ewige'];
@@ -21,7 +21,7 @@ const asText = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '
  *   Ergebnisblatt: Ergebnis in Spalten c+2 / c+4.
  * Blöcke werden spaltenweise von links nach rechts, oben nach unten nummeriert.
  */
-export function parseSheetMatches(ws) {
+export function parseSheetMatches(ws, rename = {}) {
   const anchors = [];
   for (const addr of Object.keys(ws)) {
     if (addr[0] === '!') continue;
@@ -32,9 +32,11 @@ export function parseSheetMatches(ws) {
   const matches = [];
   anchors.forEach((a, blockIdx) => {
     for (let i = 1; i <= MAX_ROWS_PER_BLOCK; i++) {
-      const home = asText(cellValue(ws, a.r + i, a.c - 4));
-      const away = asText(cellValue(ws, a.r + i, a.c - 2));
-      if (!home || !away) break;
+      const rawHome = asText(cellValue(ws, a.r + i, a.c - 4));
+      const rawAway = asText(cellValue(ws, a.r + i, a.c - 2));
+      if (!rawHome || !rawAway) break;
+      const home = rename[rawHome] ?? rawHome;
+      const away = rename[rawAway] ?? rawAway;
       const tH = asNum(cellValue(ws, a.r + i, a.c - 1));
       const tG = asNum(cellValue(ws, a.r + i, a.c + 1));
       const rH = asNum(cellValue(ws, a.r + i, a.c + 2));
@@ -61,19 +63,22 @@ export function isPlayerSheetName(name) {
 
 /**
  * @param {ArrayBuffer|Uint8Array} data Inhalt der .xlsx/.xlsm
+ * @param {{rename?: Record<string,string>}} [opts] rename: Vereinsname in der Datei -> gewünschter Name
+ *   (Rückgabe `teams` enthält immer die Namen, wie sie in der Datei stehen.)
  */
-export function parseWorkbook(data) {
+export function parseWorkbook(data, { rename = {} } = {}) {
   const wb = XLSX.read(data, { type: 'array', cellFormula: false });
   const players = [];
   const ignored = [];
   const warnings = [];
   let order = null; // Spielplan (Reihenfolge, Blöcke)
   let excelResults = null;
+  const teams = new Set(); // Vereinsnamen wie in der Datei
 
   for (const name of wb.SheetNames) {
     const ws = wb.Sheets[name];
     if (name.trim().toLowerCase() === RESULT_SHEET) {
-      const ms = parseSheetMatches(ws).filter((m) => m.res);
+      const ms = parseSheetMatches(ws, rename).filter((m) => m.res);
       if (ms.length) excelResults = ms.map((m) => ({ key: m.key, block: m.block, h: m.res.h, g: m.res.g }));
       ignored.push(name);
       continue;
@@ -82,18 +87,16 @@ export function parseWorkbook(data) {
       ignored.push(name);
       continue;
     }
-    const matches = parseSheetMatches(ws);
+    for (const m of parseSheetMatches(ws)) { teams.add(m.home); teams.add(m.away); }
+    const matches = parseSheetMatches(ws, rename);
     if (!matches.length) {
       ignored.push(name); // kein Tippblatt
       continue;
     }
     const tips = {};
-    const unknown = new Set();
     for (const m of matches) {
       if (m.tip) tips[m.key] = m.tip;
-      for (const t of [m.home, m.away]) if (!isKnownTeam(t)) unknown.add(t);
     }
-    unknown.forEach((t) => warnings.push(`Blatt "${name}": unbekannter Verein "${t}"`));
     if (!order) order = matches.map(({ block, home, away, key }) => ({ block, home, away, key }));
     players.push({
       name: name.trim(),
@@ -107,5 +110,5 @@ export function parseWorkbook(data) {
   const counts = new Set(players.map((p) => p.matchCount));
   if (counts.size > 1) warnings.push(`Spielerblätter haben unterschiedlich viele Spiele: ${[...counts].join(', ')}`);
 
-  return { players, ignored, warnings, order: order ?? [], excelResults };
+  return { players, ignored, warnings, order: order ?? [], excelResults, teams: [...teams] };
 }

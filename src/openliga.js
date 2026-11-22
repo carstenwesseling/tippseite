@@ -27,3 +27,12 @@ export async function fetchSeason(jahr, liga = 'bl1') {
   if (!res.ok) throw new Error(`OpenLigaDB: HTTP ${res.status}`);
   return mapMatches(await res.json());
 }
+
+/** Aktuelle Bundesliga-Vereine der Saison (offizielle Namen). Wirft bei Fehler. */
+export async function fetchTeams(jahr, liga = 'bl1') {
+  const res = await fetch(`${BASE.replace('getmatchdata', 'getavailableteams')}/${liga}/${jahr}`);
+  if (!res.ok) throw new Error(`OpenLigaDB: HTTP ${res.status}`);
+  const names = (await res.json()).map((t) => t.teamName).filter(Boolean);
+  if (!names.length) throw new Error('OpenLigaDB: keine Vereine');
+  return names;
+}
