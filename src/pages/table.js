@@ -83,6 +83,9 @@ export async function renderTable(app, session, id) {
   const dayMax = Object.fromEntries(spieltage.map((d) => [d, played.has(d) ? Math.max(0, ...table.map((r) => r.perDay[d] ?? 0)) : -1]));
   const max = Math.max(1, ...Object.values(dayMax));
   const val = (r, d) => (played.has(d) ? (r.perDay[d] ?? 0) : null);
+  // Alleiniger Spieltagssieger (nur ein Spieler mit der Höchstzahl) an einem abgeschlossenen Spieltag
+  const dayDone = (d) => !(matches ?? []).some((m) => m.spieltag === d && !m.finished);
+  const isSolo = (v, d) => v != null && v > 0 && v === dayMax[d] && dayDone(d) && d !== cur && table.filter((x) => (x.perDay[d] ?? 0) === dayMax[d]).length === 1;
   const isBest = (v, d) => v != null && v > 0 && v === dayMax[d];
   const stand = round.kind === 'chronik' ? 'Chronik' : api ? new Date(api.updatedAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–';
   const meta = round.kind === 'chronik'
@@ -96,7 +99,7 @@ export async function renderTable(app, session, id) {
   const tableHtml = `<table><thead><tr><th class="c1">#</th><th class="c2">Name</th>${spieltage.map((d) => `<th class="day${d === cur ? ' cur' : ''}">${d}</th>`).join('')}
     <th class="stat sep">2er</th><th class="stat">1er</th><th class="ct">Pkt</th></tr></thead><tbody>${table.map((r) => `
     <tr class="${r.rank <= 3 ? 'top' : ''} ${isMe(session, r.name) ? 'me' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
-    ${spieltage.map((d) => { const v = val(r, d); const c = d === cur ? ' cur' : ''; return v == null ? `<td class="day pend${c}">${r.totalOnly ? '-' : '·'}</td>` : `<td class="day ${isBest(v, d) ? 'best' : ''}${c}">${v}</td>`; }).join('')}
+    ${spieltage.map((d) => { const v = val(r, d); const c = d === cur ? ' cur' : ''; return v == null ? `<td class="day pend${c}">${r.totalOnly ? '-' : '·'}</td>` : `<td class="day ${isSolo(v, d) ? 'solo' : isBest(v, d) ? 'best' : ''}${c}">${v}</td>`; }).join('')}
     <td class="stat sep">${r.zwei ?? '–'}</td><td class="stat">${r.eins ?? '–'}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
 
   const listHtml = table.map((r) => {
@@ -132,7 +135,7 @@ export async function renderTable(app, session, id) {
     </div>
     <section class="view" id="tabelle" aria-label="Tabelle">
       <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar">${tableHtml}</div>
-      <div class="gut hint"><span><i></i>Tagesbester</span>${cur !== null ? `<span><i class="curkey"></i>Spieltag ${cur} läuft – Punkte vorläufig, Aktualisierung jede Minute</span>` : ''}<span>Seitlich wischen für alle Spieltage</span></div>
+      <div class="gut hint"><span><i></i>Tagesbester</span><span><i class="solokey"></i>Alleiniger Spieltagssieger</span>${cur !== null ? `<span><i class="curkey"></i>Spieltag ${cur} läuft – Punkte vorläufig, Aktualisierung jede Minute</span>` : ''}<span>Seitlich wischen für alle Spieltage</span></div>
     </section>
     <section class="view" id="liste" aria-label="Liste" hidden><div class="list" id="list">${listHtml}</div></section>
     <div class="gut foot">${esc(info)} · Quelle: ${esc(source)}</div>`;
