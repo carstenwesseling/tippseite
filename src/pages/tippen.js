@@ -20,9 +20,28 @@ function row(m) {
     <span class="t g" title="${esc(m.away)}">${esc(shortName(m.away))}</span></div>`;
 }
 
-export async function renderTippen(app) {
-  const [tipping, members] = await Promise.all([getTipping().catch(() => null), listMembers({ onlyActive: true })]);
-  if (!tipping) { app.innerHTML = '<h1>Tippen</h1><div class="msg">Zurzeit ist keine Tipprunde geöffnet.</div>'; return; }
+const denied = (e) => e?.code === 'permission-denied' || /permission/i.test(e?.message ?? '');
+
+export async function renderTippen(app, session) {
+  let tipping, members;
+  try {
+    [tipping, members] = await Promise.all([getTipping(), listMembers({ onlyActive: true })]);
+  } catch (e) {
+    app.innerHTML = denied(e)
+      ? `<h1>Tippen</h1><div class="msg err">Keine Berechtigung zum Lesen der Tipprunde. Die neuen Firestore-Regeln sind vermutlich noch nicht eingespielt: <code>npx firebase-tools deploy --only firestore:rules</code></div>`
+      : `<h1>Tippen</h1><div class="msg err">Die Tipprunde konnte nicht geladen werden: ${esc(e.message)}</div>`;
+    return;
+  }
+  if (!tipping) {
+    app.innerHTML = `<h1>Tippen</h1><div class="msg">Zurzeit ist keine Tipprunde geöffnet.${session?.isAdmin
+      ? ' Du kannst sie unter <a href="#/admin"><u>Verwaltung → Tipprunde eröffnen</u></a> starten.' : ''}</div>`;
+    return;
+  }
+  if (!members.length) {
+    app.innerHTML = `<h1>${esc(tipping.title)}</h1><div class="msg warn">Es sind noch keine Mitglieder zum Tippen freigeschaltet.${session?.isAdmin
+      ? ' Setze unter <a href="#/admin"><u>Verwaltung → Mitglieder</u></a> die Haken und klicke auf „Mitglieder speichern“.' : ' Die Verwaltung muss zuerst die Mitglieder freischalten.'}</div>`;
+    return;
+  }
 
   const order = tipping.order;
   const total = order.length;
