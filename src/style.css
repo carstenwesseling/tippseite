@@ -15,7 +15,7 @@
   --pitch: #34c46c; --pitch-ink: #07140c; --pitch-soft: #173a25; --me: #17231c; --bar: #35503f; --g-bg: #0e2418; --g-row: #133021; --g-muted: #8db39c; --g-line: #ffffff22; --g-bar: #ffffff40; color-scheme: dark; }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.4 var(--text); -webkit-text-size-adjust: 100%; }
+body { margin: 0; overflow-x: clip; background: var(--bg); color: var(--ink); font: 400 15px/1.4 var(--text); -webkit-text-size-adjust: 100%; }
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -42,20 +42,26 @@ main { max-width: 1200px; margin: 0 auto; padding-block: 12px 40px; }
 .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px; flex: none; }
 .seg button { padding: 5px 11px; border-radius: 6px; font-weight: 500; font-size: 13px; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--pitch); color: var(--pitch-ink); }
+.head, .hint { position: sticky; left: 0; }
+h1.plain { margin: 0; font: 700 22px/1.15 var(--display); text-transform: uppercase; letter-spacing: .02em; }
 .view[hidden] { display: none; }
 
 /* Ansicht Tabelle (A) */
 .wrap { overflow: auto; background: var(--surface); border-block: 1px solid var(--line); max-height: calc(100dvh - 150px); }
 @media (min-width: 1000px) { .wrap { border: 1px solid var(--line); border-radius: 6px; margin-inline: max(16px, env(safe-area-inset-left, 0px)); } }
-table { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; font-size: 13.5px; }
-th, td { padding: 0 8px; height: 40px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--line); background: var(--surface); }
-tbody tr:last-child td { border-bottom: 0; }
-thead th { position: sticky; top: 0; z-index: 3; height: 34px; font: 600 11px/1 var(--text); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-tr.me td { background: var(--me); }
+/* Spielertabelle */
+.wrap table { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+.wrap th, .wrap td { padding: 0 8px; height: 40px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--line); background: var(--surface); }
+.wrap tbody tr:last-child td { border-bottom: 0; }
+.wrap thead th { position: sticky; top: 0; z-index: 3; height: 34px; font: 600 11px/1 var(--text); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.wrap tr.me td { background: var(--me); }
 .c1, .c2, .ct { position: sticky; z-index: 2; }
-thead .c1, thead .c2, thead .ct { z-index: 4; }
+.wrap thead .c1, .wrap thead .c2, .wrap thead .ct { z-index: 5; }
+.wrap td.best { background: var(--pitch-soft); color: var(--ink); font-weight: 700; box-shadow: inset 0 0 0 2px var(--pitch); }
+th.sortable { cursor: pointer; user-select: none; }
+th[data-dir="1"]::after { content: " ▲"; } th[data-dir="-1"]::after { content: " ▼"; }
 .c1 { left: 0; width: 34px; min-width: 34px; padding: 0 0 0 12px; text-align: left; }
-.c2 { left: 34px; min-width: 92px; text-align: left; font-weight: 500; padding-left: 6px; box-shadow: 1px 0 0 var(--line); }
+.c2 { left: 34px; min-width: 92px; text-align: right; font-weight: 500; padding: 0 12px 0 6px; box-shadow: 1px 0 0 var(--line); }
 .ct { right: 0; min-width: 54px; font-weight: 700; font-size: 15px; box-shadow: -1px 0 0 var(--line); padding: 0 14px 0 10px; }
 .rk { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 4px; font: 700 15px/1 var(--display); color: var(--muted); margin-left: -4px; }
 .top .rk { background: var(--pitch); color: var(--pitch-ink); }
@@ -91,7 +97,7 @@ thead .c1, thead .c2, thead .ct { z-index: 4; }
 .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--g-on); vertical-align: -1px; margin-right: 6px; }
 .pts { font: 700 32px/1 var(--display); font-variant-numeric: tabular-nums; text-align: right; min-width: 44px; }
 .nums { display: none; }
-.detail { display: none; padding: 0 0 14px 44px; }
+.detail { display: none; padding: 0 70px 14px 44px; }
 .item[data-open="true"] .detail { display: block; }
 .chart { display: flex; align-items: end; gap: 3px; height: 92px; }
 .chart div { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: end; align-items: center; height: 100%; font-size: 9px; color: var(--muted); }
@@ -108,9 +114,9 @@ thead .c1, thead .c2, thead .ct { z-index: 4; }
   .lrow { grid-template-columns: 40px minmax(0, 1fr) 190px 56px; gap: 18px; padding-inline: 12px; }
   .nums { display: flex; gap: 14px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; justify-content: end; }
   .nums b { color: var(--ink); font-weight: 600; }
-  .detail { padding-left: 70px; padding-right: 12px; }
+  .detail { padding-left: 70px; padding-right: 100px; }
 }
-@media (max-width: 600px) { th, td { padding: 0 6px; } }
+@media (max-width: 600px) { .wrap th, .wrap td { padding: 0 6px; } }
 
 /* ---- App-spezifisch: Formulare, Karten, Meldungen (Verwaltung, Startseite) ---- */
 main > :is(h1, .card, .msg, p, .rounds) { margin-inline: max(16px, env(safe-area-inset-left, 0px)); }
@@ -138,3 +144,22 @@ a.round strong { font: 700 22px/1.1 var(--display); text-transform: uppercase; l
 .foot { padding-block: 8px; color: var(--muted); font-size: 12px; }
 
 @media (min-width: 480px) { .bar-in { gap: 14px; } nav { gap: 14px; } }
+
+/* ---- Verwaltung: Reiter, Mitgliedertabellen ---- */
+.tabs { display: flex; gap: 6px; margin: 0 max(16px, env(safe-area-inset-left, 0px)) 12px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs a { padding: 8px 12px; color: var(--muted); font-weight: 500; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs .linkbtn { margin-left: auto; align-self: center; }
+.tabs a.active { color: var(--ink); border-bottom-color: var(--pitch); }
+main > h2 { margin-inline: max(16px, env(safe-area-inset-left, 0px)); font: 700 22px/1.15 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.card a, .msg a, main > p a { color: var(--pitch); font-weight: 500; }
+.scroll { overflow: auto; max-height: 75dvh; }
+.scroll table { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+.scroll th, .scroll td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.scroll th:first-child, .scroll td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
+.scroll thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.scroll thead th:first-child { z-index: 3; }
+.scroll th.sortable { cursor: pointer; user-select: none; }
+.scroll td.total { font-weight: 700; }
+textarea { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; max-width: 100%; }
+input[type="file"] { max-width: 100%; }
+.scroll .mat th:first-child, .scroll .mat td:first-child { text-align: right; }

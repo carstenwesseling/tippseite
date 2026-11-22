@@ -26,7 +26,13 @@ export function scoreMatch(tip, result) {
  */
 export function buildTable(players, results, spieltage) {
   const byKey = new Map(results.map((r) => [r.key, r]));
+  const chronikDays = new Set(); // Spieltage mit Daten aus einer Chronik-Halbserie
   const rows = players.map((p) => {
+    if (p.perDay) { // Chronik: Punkte je Spieltag liegen schon vor, keine Einzeltipps
+      const pd = Object.fromEntries(spieltage.map((d) => [d, p.perDay[d] ?? 0]));
+      Object.keys(p.perDay).forEach((d) => chronikDays.add(Number(d)));
+      return { name: p.name, perDay: pd, total: Object.values(pd).reduce((a, b) => a + b, 0), zwei: null, eins: null };
+    }
     const perDay = Object.fromEntries(spieltage.map((d) => [d, 0]));
     let zwei = 0;
     let eins = 0;
@@ -46,7 +52,7 @@ export function buildTable(players, results, spieltage) {
   rows.forEach((r, i) => {
     r.rank = i > 0 && rows[i - 1].total === r.total ? rows[i - 1].rank : i + 1;
   });
-  const played = new Set(results.map((r) => r.spieltag)).size;
+  const played = new Set([...results.map((r) => r.spieltag), ...chronikDays]).size;
   rows.forEach((r) => (r.schnitt = played ? r.total / played : 0));
   return rows;
 }
