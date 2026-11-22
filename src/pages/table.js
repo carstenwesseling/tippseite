@@ -110,7 +110,7 @@ export async function renderTable(app, session, id) {
         <div class="days">${spieltage.map((d) => `<div class="${d === cur ? 'cur' : ''}">${d}</div>`).join('')}</div>
         <div class="facts"><span><b>${r.zwei ?? '–'}</b>exakt (2 Pkt)</span><span><b>${r.eins ?? '–'}</b>Tendenz (1 Pkt)</span></div></div>
     </div>`;
-  }).join('') + `<div class="gut lg"><span><i></i>Spieltagsbester (meiste Punkte am Spieltag)</span><span>Zahl unter dem Balken = Punkte</span></div>`;
+  }).join('') + `<div class="gut lg"><span><i></i>Spieltagsbester (meiste Punkte am Spieltag)</span><span>Zahl unter dem Balken = Punkte</span>${cur !== null ? `<span><i class="curkey"></i>Spieltag ${cur} läuft – Punkte vorläufig</span>` : ''}</div>`;
 
   const prev = {
     open: [...app.querySelectorAll('.item')].map((el, i) => (el.dataset.open === 'true' ? i : -1)).filter((i) => i >= 0),
