@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { matchKey } from './teams.js';
-import { isGenericSheetName } from './halbserie.js';
+import { isGenericSheetName, canonName } from './halbserie.js';
 
 // Blätter, die keine Spielerblätter sind (Präfixe, Groß-/Kleinschreibung egal).
 const IGNORE_PREFIX = ['namen', 'ergebnisse', 'aktueller stand', 'bezahlt', 'ewige'];
@@ -100,14 +100,14 @@ export function parseWorkbook(data, { fallbackName, rename = {} } = {}) {
     }
     if (!order) order = matches.map(({ block, home, away, key }) => ({ block, home, away, key }));
     players.push({
-      name: name.trim(),
+      name: canonName(name),
       tips,
       matchCount: matches.length,
       tipCount: Object.keys(tips).length,
     });
   }
 
-  if (players.length === 1 && fallbackName && isGenericSheetName(players[0].name)) players[0].name = fallbackName;
+  if (players.length === 1 && fallbackName && isGenericSheetName(players[0].name)) players[0].name = canonName(fallbackName);
 
   if (!players.length) warnings.push('Keine Spielerblätter gefunden.');
   const counts = new Set(players.map((p) => p.matchCount));

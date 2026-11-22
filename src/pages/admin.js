@@ -1,5 +1,5 @@
 import { parseWorkbook, mergeParsed } from '../excel.js';
-import { planTeams, findNameGroups, mergePlayers } from '../matching.js';
+import { planTeams, findNameGroups, findSpellingVariants, mergePlayers } from '../matching.js';
 import { parseChronik, renameChronik } from '../chronik.js';
 import { fetchTeams } from '../openliga.js';
 import { BUNDESLIGA_FALLBACK } from '../teams.js';
@@ -102,8 +102,16 @@ export async function renderAdmin(app, session, flash = '') {
     const known = new Set(members.map((m) => m.name));
     // 2) Unsichere Fälle: ähnliche Namen in der Datei oder zu vorhandenen Mitgliedern.
     const effective = [...new Set(importNames.map((n) => aliasMap[n] ?? n))];
-    const groups = findNameGroups([...new Set([...effective, ...known])], { strict: true })
+    // Gleiche Schreibweisen (nur Zeichensetzung/Groß-Kleinschreibung/Leerzeichen anders): je Variante ein Vorschlag, vorausgewählt.
+    const counts = new Map();
+    for (const r of chronik.rounds) for (const p of r.players) { const c = aliasMap[p.name] ?? p.name; counts.set(c, (counts.get(c) ?? 0) + 1); }
+    const variants = findSpellingVariants([...effective, ...known], { known, counts })
+      .filter((v) => effective.includes(v.from) && !known.has(v.from));
+    const fromSet = new Set(variants.map((v) => v.from));
+    const otherGroups = findNameGroups([...new Set([...effective, ...known])].filter((n) => !fromSet.has(n)), { strict: true })
       .filter((g) => g.some((n) => effective.includes(n)) && !g.every((n) => known.has(n)));
+    const groups = [...variants.map((v) => [v.from, v.to]), ...otherGroups];
+    const pre = new Map(variants.map((v, i) => [i, v.to])); // Gruppe -> vorgeschlagener Zielname
 
     preview.innerHTML = `
       <div class="msg ok">Chronik-Datei „${esc(filename)}“ erkannt: ${chronik.rounds.length} Halbserien, ${importNames.length} verschiedene Namen.
@@ -134,9 +142,10 @@ export async function renderAdmin(app, session, flash = '') {
       ${groups.length ? `<h4>Namen prüfen – gehören diese zusammen?</h4>
         ${groups.map((g, i) => `<div class="card">
           <div>${g.map((n) => `${esc(n)}${known.has(n) ? ' <span class="muted">(Mitglied)</span>' : ''}`).join(' &nbsp;·&nbsp; ')}</div>
-          <label style="display:block"><input type="radio" name="cg${i}" value="" checked /> Verschiedene Personen (getrennt lassen)</label>
-          <label style="display:block"><input type="radio" name="cg${i}" value="merge" /> Dieselbe Person, zusammenführen als
-            <select data-cinto="${i}">${[...g].sort((a, b) => known.has(b) - known.has(a)).map((n) => `<option>${esc(n)}</option>`).join('')}</select></label>
+          ${pre.has(i) ? '<div class="muted">Gleiche Schreibweise – Vorschlag:</div>' : ''}
+          <label style="display:block"><input type="radio" name="cg${i}" value="" ${pre.has(i) ? '' : 'checked'} /> Verschiedene Personen (getrennt lassen)</label>
+          <label style="display:block"><input type="radio" name="cg${i}" value="merge" ${pre.has(i) ? 'checked' : ''} /> Dieselbe Person, zusammenführen als
+            <select data-cinto="${i}">${[...g].sort((a, b) => (b === pre.get(i)) - (a === pre.get(i)) || known.has(b) - known.has(a)).map((n) => `<option>${esc(n)}</option>`).join('')}</select></label>
         </div>`).join('')}`
         : '<div class="msg ok">Keine unklaren Namen gefunden.</div>'}
       <div class="row"><button id="cimport">Importieren</button><span id="cmsg"></span></div>`;
@@ -248,7 +257,11 @@ export async function renderAdmin(app, session, flash = '') {
       teamSource = `OpenLigaDB, Saison ${$('#jahr').value}`;
     } catch { /* Fallback */ }
     const teamPlan = planTeams(parsed.teams, bundesliga).sort((a, b) => a.name.localeCompare(b.name, 'de'));
-    const nameGroups = findNameGroups(parsed.players.map((p) => p.name));
+    const playerNames = parsed.players.map((p) => p.name);
+    const nvariants = findSpellingVariants(playerNames);
+    const nFrom = new Set(nvariants.map((v) => v.from));
+    const nameGroups = [...nvariants.map((v) => [v.from, v.to]), ...findNameGroups(playerNames.filter((n) => !nFrom.has(n)))];
+    const npre = new Map(nvariants.map((v, i) => [i, v.to]));
     const opts = (sel) => `<option value="">– unverändert lassen –</option>${[...bundesliga].sort((a, b) => a.localeCompare(b, 'de'))
       .map((t) => `<option ${t === sel ? 'selected' : ''}>${esc(t)}</option>`).join('')}`;
     preview.innerHTML = `
@@ -262,9 +275,10 @@ export async function renderAdmin(app, session, flash = '') {
       ${nameGroups.length ? `<h4>Mitspielernamen – gehören diese zusammen?</h4>
         ${nameGroups.map((g, i) => `<div class="card">
           <div>${g.map(esc).join(' &nbsp;·&nbsp; ')}</div>
-          <label style="display:block"><input type="radio" name="g${i}" value="" checked /> Verschiedene Personen (getrennt lassen)</label>
-          <label style="display:block"><input type="radio" name="g${i}" value="merge" /> Dieselbe Person, zusammenführen als
-            <select data-into="${i}">${g.map((n) => `<option>${esc(n)}</option>`).join('')}</select></label>
+          ${npre.has(i) ? '<div class="muted">Gleiche Schreibweise – Vorschlag:</div>' : ''}
+          <label style="display:block"><input type="radio" name="g${i}" value="" ${npre.has(i) ? '' : 'checked'} /> Verschiedene Personen (getrennt lassen)</label>
+          <label style="display:block"><input type="radio" name="g${i}" value="merge" ${npre.has(i) ? 'checked' : ''} /> Dieselbe Person, zusammenführen als
+            <select data-into="${i}">${[...g].sort((a, b) => (b === npre.get(i)) - (a === npre.get(i))).map((n) => `<option>${esc(n)}</option>`).join('')}</select></label>
         </div>`).join('')}` : ''}
       <div class="row"><button id="confirm">Zuordnung bestätigen</button></div>`;
 

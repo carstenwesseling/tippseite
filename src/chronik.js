@@ -2,6 +2,7 @@
 // den Punkten pro Spieltag. Nur die Spalten A–S werden gelesen (Platz, Name, Spieltage 1–17);
 // alles rechts davon (Gesamt, 2er, Formeln) wird ignoriert, die Summe rechnen wir selbst.
 import * as XLSX from 'xlsx';
+import { canonName } from './halbserie.js';
 
 export const LAST_COL = 18; // Spalte S (0-basiert)
 const FIRST_DAY_COL = 2; // Spalte C
@@ -34,7 +35,7 @@ function dayColumns(ws, row = 0) {
 }
 
 const colName = (c) => XLSX.utils.encode_col(c);
-const nameOf = (raw) => (typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim() : '');
+const nameOf = (raw) => (typeof raw === 'string' ? canonName(raw) : '');
 const filled = (v) => num(v) !== null || (typeof v === 'string' && v.trim() === '-');
 const dataCount = (ws, r) => { let n = 0; for (let c = FIRST_DAY_COL; c <= LAST_COL; c++) if (num(cell(ws, r, c)) !== null) n++; return n; };
 

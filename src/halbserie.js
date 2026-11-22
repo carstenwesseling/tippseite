@@ -95,5 +95,8 @@ export function nameFromFilename(filename) {
 /** Standardnamen, die Excel neuen Blättern gibt – dann ist der Dateiname der bessere Spielername. */
 export const isGenericSheetName = (name) => /^(tabelle|sheet|blatt|table|tipps?|tippschein)\s*\d*$/i.test(String(name).trim());
 
+/** Einheitliche Schreibweise eines Spielernamens: ohne Leerzeichen um das Komma, einfache Leerzeichen ("Müller, A." -> "Müller,A."). */
+export const canonName = (n) => String(n ?? '').normalize('NFC').replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ').trim();
+
 /** Schlüssel für den Namensvergleich: Groß-/Kleinschreibung, Leerzeichen und "Name, V." = "Name,V." egal. */
 export const normName = (n) => String(n ?? '').normalize('NFC').toLowerCase().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ').trim();

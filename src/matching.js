@@ -76,6 +76,36 @@ export function findNameGroups(names, { strict = false } = {}) {
 }
 
 /**
+ * Findet Namen, die sich nur in der Schreibweise unterscheiden (Groß-/Kleinschreibung, Zeichensetzung, Leerzeichen,
+ * Akzente: "Möller.H." / "Möller,H."). Je abweichender Schreibweise ein Vorschlag { from, to }.
+ * Zielname: bekanntes Mitglied, sonst häufigste Schreibweise, sonst die mit korrektem Format "Name,V.".
+ * @param {string[]} names
+ * @param {{known?: Set<string>, counts?: Map<string,number>}} [opts]
+ * @returns {Array<{from:string,to:string}>}
+ */
+export function findSpellingVariants(names, { known = new Set(), counts = new Map() } = {}) {
+  const byKey = new Map();
+  for (const n of new Set(names)) {
+    const key = strip(n).replace(/[^a-z0-9]/g, '');
+    if (!key) continue;
+    byKey.set(key, [...(byKey.get(key) ?? []), n]);
+  }
+  const wellFormed = (n) => /^[^,\s][^,]*,[^,\s][^,]*$/.test(n) && n === n.trim() && !/[.][A-Za-zÄÖÜäöü]/.test(n.split(',')[0]);
+  const out = [];
+  for (const group of byKey.values()) {
+    if (group.length < 2) continue;
+    const rank = (n) => [known.has(n) ? 1 : 0, counts.get(n) ?? 0, wellFormed(n) ? 1 : 0];
+    const best = [...group].sort((a, b) => {
+      const ra = rank(a), rb = rank(b);
+      for (let i = 0; i < 3; i++) if (ra[i] !== rb[i]) return rb[i] - ra[i];
+      return a.localeCompare(b, 'de');
+    })[0];
+    for (const n of group) if (n !== best) out.push({ from: n, to: best });
+  }
+  return out;
+}
+
+/**
  * Führt Spieler zusammen. `merges`: Liste { names: [...], into: 'Zielname' }.
  * Fehlende Tipps werden aus den anderen Blättern ergänzt, bei Widerspruch gewinnt das erste.
  */

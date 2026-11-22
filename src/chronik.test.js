@@ -94,6 +94,10 @@ describe('Chronik', () => {
       const d = wbMulti({ 'Hinrunde 2010-2011 L1': [head, row('A,A.')], 'Hinrunde 2010-2011 L1 ': [head, row('B,B.')] });
       expect(parseChronik(d).warnings.join(' ')).toContain('dieselbe Halbserie und Liga');
     });
+    it('Namen mit Leerzeichen nach dem Komma werden vereinheitlicht', () => {
+      const d = wbMulti({ 'Hinrunde 2010-2011 L1': [head, [null, 'Müller, A.', ...Array(17).fill(5), 85]] });
+      expect(parseChronik(d).rounds[0].players[0].name).toBe('Müller,A.');
+    });
     it('korrekte Blätter erzeugen keine Hinweise', () => {
       expect(parseChronik(wbMulti({ 'Hinrunde 2010-2011 L1': [head, row('A,A.')] })).issues).toEqual([]);
     });
