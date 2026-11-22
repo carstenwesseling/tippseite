@@ -175,7 +175,7 @@ export async function renderAdmin(app, session, flash = '') {
         for (const r of chosen) {
           const old = rounds.find((x) => x.jahr === r.jahr && x.typ === r.typ && x.kind === 'chronik');
           if (old) await deleteRound(old.id);
-          await saveRound({ jahr: r.jahr, typ: r.typ, kind: 'chronik', liga: r.liga, spieltage: r.spieltage, players: r.players });
+          await saveRound({ jahr: r.jahr, typ: r.typ, kind: 'chronik', liga: r.liga, spieltage: r.spieltage, totalsOnly: r.totalsOnly, players: r.players });
         }
         const added = await ensureMembers(chosen.flatMap((r) => r.players.map((p) => p.name)));
         renderAdmin(app, session, `<div class="msg ok">${chosen.length} Halbserien aus der Chronik importiert.

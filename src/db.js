@@ -31,12 +31,12 @@ export async function getRound(id) {
 }
 
 /** Speichert eine Halbserie samt Spielern (Batches à max. 400 Schreibvorgänge). */
-export async function saveRound({ jahr, typ, order, excelResults, players, kind, liga, spieltage }) {
+export async function saveRound({ jahr, typ, order, excelResults, players, kind, liga, spieltage, totalsOnly }) {
   const ref = doc(collection(db, 'rounds'));
   await setDoc(ref, {
     title: roundCode({ jahr, typ }), jahr, typ, order: order ?? [], excelResults: excelResults ?? [],
     playerCount: players.length, createdAt: Date.now(),
-    ...(kind ? { kind } : {}), ...(liga ? { liga } : {}), ...(spieltage ? { spieltage } : {}),
+    ...(kind ? { kind } : {}), ...(liga ? { liga } : {}), ...(spieltage ? { spieltage } : {}), ...(totalsOnly ? { totalsOnly: true } : {}),
   });
   await writePlayers(ref.id, players);
   return ref.id;
@@ -46,7 +46,7 @@ async function writePlayers(roundId, players) {
   for (let i = 0; i < players.length; i += 400) {
     const batch = writeBatch(db);
     for (const p of players.slice(i, i + 400)) {
-      batch.set(doc(db, 'rounds', roundId, 'players', encodeURIComponent(p.name)), { name: p.name, tips: p.tips ?? {}, ...(p.perDay ? { perDay: p.perDay } : {}) });
+      batch.set(doc(db, 'rounds', roundId, 'players', encodeURIComponent(p.name)), { name: p.name, tips: p.tips ?? {}, ...(p.perDay ? { perDay: p.perDay } : {}), ...(typeof p.total === 'number' ? { total: p.total } : {}) });
     }
     await batch.commit();
   }

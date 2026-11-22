@@ -28,6 +28,9 @@ export function buildTable(players, results, spieltage) {
   const byKey = new Map(results.map((r) => [r.key, r]));
   const chronikDays = new Set(); // Spieltage mit Daten aus einer Chronik-Halbserie
   const rows = players.map((p) => {
+    if (typeof p.total === 'number') { // Chronik-Blatt nur mit Summe: Spieltage bleiben leer
+      return { name: p.name, perDay: Object.fromEntries(spieltage.map((d) => [d, 0])), total: p.total, zwei: null, eins: null, totalOnly: true };
+    }
     if (p.perDay) { // Chronik: Punkte je Spieltag liegen schon vor, keine Einzeltipps
       const pd = Object.fromEntries(spieltage.map((d) => [d, p.perDay[d] ?? 0]));
       Object.keys(p.perDay).forEach((d) => chronikDays.add(Number(d)));

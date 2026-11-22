@@ -85,7 +85,7 @@ function sumCheck(ws, rows, cols) {
 const FIXES = {
   headerrow: 'Zeilen über der Kopfzeile ignorieren',
   positional: 'Spieltage nach Spaltenposition lesen',
-  totals: 'Nur Gesamtpunkte importieren',
+  totals: 'Summe übernehmen, Spieltage mit „-“ leer lassen',
   skipblank: 'Leerzeilen überspringen',
 };
 export const FIX_LABELS = FIXES;
@@ -151,9 +151,9 @@ export function parseChronik(data, { fixes = {} } = {}) {
         else { ignored.push(sheet); continue; }
       } else if (info.dayRun === 1) {
         issue('totals', 'Das Blatt enthält je Spieler nur einen Wert (Spalte C = Gesamtpunkte), keine Punkte je Spieltag.',
-          'Gesamtpunkte als einen Sammel-Spieltag importieren: Rangfolge und Summe stimmen, Spieltagswerte fehlen. (Nicht vorausgewählt.)',
+          'Die Summe in die Summenspalte der Halbserie übernehmen, die einzelnen Spieltage bleiben leer („-“). (Nicht vorausgewählt.)',
           'totals', false);
-        if (want.has('totals')) { cols = [FIRST_DAY_COL]; applied.push('totals'); }
+        if (want.has('totals')) { cols = Array.from({ length: LAST_COL - FIRST_DAY_COL + 1 }, (_, i) => FIRST_DAY_COL + i); applied.push('totals'); }
         else { ignored.push(sheet); continue; }
       } else { ignored.push(sheet); continue; }
     }
@@ -165,6 +165,7 @@ export function parseChronik(data, { fixes = {} } = {}) {
       if (want.has('skipblank')) applied.push('skipblank');
     }
 
+    const totalsOnly = applied.includes('totals');
     const players = [];
     const seen = new Set();
     const lastRow = applied.includes('skipblank') ? 399 : (info.rows.length ? info.rows[info.rows.length - 1] : start);
@@ -174,11 +175,14 @@ export function parseChronik(data, { fixes = {} } = {}) {
       if (seen.has(name)) { warnings.push(`Blatt "${sheet}": Name "${name}" kommt doppelt vor (2. Eintrag ignoriert).`); continue; }
       seen.add(name);
       const perDay = {};
-      cols.forEach((c, i) => { const v = num(cell(ws, r, c)); if (v !== null) perDay[i + 1] = v; });
-      players.push({ name, perDay });
+      if (totalsOnly) players.push({ name, perDay, total: num(cell(ws, r, FIRST_DAY_COL)) ?? 0 });
+      else {
+        cols.forEach((c, i) => { const v = num(cell(ws, r, c)); if (v !== null) perDay[i + 1] = v; });
+        players.push({ name, perDay });
+      }
     }
     if (!players.length) { ignored.push(sheet); continue; }
-    rounds.push({ sheet, ...meta, spieltage: cols.map((_, i) => i + 1), players, fixes: applied });
+    rounds.push({ sheet, ...meta, spieltage: cols.map((_, i) => i + 1), players, fixes: applied, ...(totalsOnly ? { totalsOnly: true } : {}) });
   }
   return rounds.length || issues.length ? { rounds, ignored, warnings, issues } : null;
 }

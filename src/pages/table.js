@@ -66,7 +66,7 @@ export async function renderTable(app, session, id) {
   const tableHtml = `<table><thead><tr><th class="c1">#</th><th class="c2">Name</th>${spieltage.map((d) => `<th class="day">${d}</th>`).join('')}
     <th class="stat sep">2er</th><th class="stat">1er</th><th class="ct">Pkt</th></tr></thead><tbody>${table.map((r) => `
     <tr class="${r.rank <= 3 ? 'top' : ''} ${isMe(session, r.name) ? 'me' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
-    ${spieltage.map((d) => { const v = val(r, d); return v == null ? '<td class="day pend">·</td>' : `<td class="day ${isBest(v, d) ? 'best' : ''}">${v}</td>`; }).join('')}
+    ${spieltage.map((d) => { const v = val(r, d); return v == null ? `<td class="day pend">${r.totalOnly ? '-' : '·'}</td>` : `<td class="day ${isBest(v, d) ? 'best' : ''}">${v}</td>`; }).join('')}
     <td class="stat sep">${r.zwei ?? '–'}</td><td class="stat">${r.eins ?? '–'}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
 
   const listHtml = table.map((r) => {
