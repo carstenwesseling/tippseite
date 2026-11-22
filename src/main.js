@@ -6,6 +6,8 @@ import { renderTable, stopPolling } from './pages/table.js';
 import { renderBestenliste } from './pages/bestenliste.js';
 import { renderAdmin } from './pages/admin.js';
 import { renderMembers, renderMember } from './pages/members.js';
+import { renderTippen } from './pages/tippen.js';
+import { renderTipAdmin } from './pages/tipadmin.js';
 
 export const session = { user: null, isAdmin: false };
 
@@ -23,6 +25,8 @@ async function route() {
   app.innerHTML = '<p class="muted">Lade …</p>';
   try {
     if (page === 'bestenliste') await renderBestenliste(app, session);
+    else if (page === 'tippen') await renderTippen(app, session);
+    else if (page === 'admin' && id === 'tippen') await renderTipAdmin(app, session);
     else if (page === 'admin' && id === 'mitglieder') await renderMembers(app, session);
     else if (page === 'admin' && id === 'mitglied' && id2) await renderMember(app, session, decodeURIComponent(id2));
     else if (page === 'admin') await renderAdmin(app, session);
@@ -40,7 +44,11 @@ function renderUser() {
   const u = session.user;
   if (!u) {
     el.innerHTML = '<button class="linkbtn" id="in">Anmelden</button>';
-    $('#in').addEventListener('click', () => login().catch((e) => alert(e.message)));
+    const btn = $('#in');
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      login().catch((e) => alert(e.message)).finally(() => { btn.disabled = false; });
+    });
     return;
   }
   const name = u.displayName || u.email || '?';
@@ -51,9 +59,11 @@ function renderUser() {
 function markNav() {
   const admin = location.hash.startsWith('#/admin');
   const best = location.hash.startsWith('#/bestenliste');
+  const tippen = location.hash.startsWith('#/tippen');
   $('#nav-admin').toggleAttribute('aria-current', admin);
   $('#nav-best').toggleAttribute('aria-current', best);
-  $('#nav-home').toggleAttribute('aria-current', !admin && !best);
+  $('#nav-tippen').toggleAttribute('aria-current', tippen);
+  $('#nav-home').toggleAttribute('aria-current', !admin && !best && !tippen);
 }
 
 onUser(async (user) => {

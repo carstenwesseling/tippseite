@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch,
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where,
 } from 'firebase/firestore';
 import { db } from './firebase.js';
 import { fetchSeason } from './openliga.js';
@@ -166,3 +166,113 @@ export async function saveMember(id, { name, aliases }) {
 }
 
 export const deleteMember = (id) => deleteDoc(doc(db, 'members', id));
+
+// ---- Mitspieler der Tipprunde ("Tipper") ----
+// tippers/{id}: { name, aktiv, sendExcel } öffentlich lesbar (Namensliste im Tippformular); tipperMail/{id}: { email } nur für Admins.
+// Getrennt von `members` (Stammdaten/Aliase der Mitgliederverwaltung); neue Tipper werden dort per ensureMembers ergänzt.
+export const tipperId = (name) => encodeURIComponent(name.trim());
+
+export async function listTippers({ onlyActive = false } = {}) {
+  const ref = collection(db, 'tippers');
+  const snap = await getDocs(onlyActive ? query(ref, where('aktiv', '==', true)) : ref);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}
+
+/** Nur Admins: hinterlegte Mailadressen (id -> Adresse). */
+export async function listTipperMails() {
+  const snap = await getDocs(collection(db, 'tipperMail'));
+  return Object.fromEntries(snap.docs.map((d) => [d.id, d.data().email]));
+}
+
+/** rows: { name, aktiv, sendExcel, email }; removed: Mitglieds-IDs, die gelöscht werden. */
+export async function saveTippers(rows, removed = []) {
+  const ops = [];
+  for (const r of rows) {
+    const id = tipperId(r.name);
+    ops.push((b) => b.set(doc(db, 'tippers', id), { name: r.name.trim(), aktiv: !!r.aktiv, sendExcel: !!r.sendExcel }));
+    if (r.sendExcel && r.email) ops.push((b) => b.set(doc(db, 'tipperMail', id), { email: r.email.trim() }));
+    else ops.push((b) => b.delete(doc(db, 'tipperMail', id)));
+  }
+  for (const id of removed) {
+    ops.push((b) => b.delete(doc(db, 'tippers', id)));
+    ops.push((b) => b.delete(doc(db, 'tipperMail', id)));
+  }
+  for (let i = 0; i < ops.length; i += 400) {
+    const batch = writeBatch(db);
+    ops.slice(i, i + 400).forEach((op) => op(batch));
+    await batch.commit();
+  }
+}
+
+// ---- Tipprunde (kommende Halbserie, in der getippt wird) ----
+// tipping/current: { title, jahr, typ, first, order:[{key,spieltag,home,away,date}], open, createdAt }
+// tipping/current/tips/{memberId}: { name, tips:{ matchKey: {h,g} }, updatedAt }
+const TIPPING = () => doc(db, 'tipping', 'current');
+
+export async function getTipping() {
+  const s = await getDoc(TIPPING());
+  return s.exists() ? s.data() : null;
+}
+
+/** Spiele der Halbserie aus OpenLigaDB holen und die Tipprunde eröffnen. */
+export async function openTipping({ title, jahr, typ }) {
+  const first = typ === 'hin' ? 1 : 18;
+  const all = await fetchSeason(jahr);
+  const order = all.filter((m) => m.spieltag >= first && m.spieltag < first + 17)
+    .sort((a, b) => a.spieltag - b.spieltag || String(a.date).localeCompare(String(b.date)))
+    .map(({ key, spieltag, home, away, date }) => ({ key, spieltag, home, away, date }));
+  if (order.length !== 153) throw new Error(`OpenLigaDB liefert ${order.length} statt 153 Spielen für ${typ === 'hin' ? 'die Hinrunde' : 'die Rückrunde'} ${jahr}/${String(jahr + 1).slice(2)}.`);
+  await setDoc(TIPPING(), { title, jahr, typ, first, order, open: true, createdAt: Date.now() });
+}
+
+export const setTippingOpen = (open) => setDoc(TIPPING(), { open }, { merge: true });
+
+export async function getTips(id) {
+  const s = await getDoc(doc(db, 'tipping', 'current', 'tips', id));
+  return s.exists() ? s.data() : null;
+}
+
+/** Abschicken speichert dauerhaft (locked): Besucher können den Tipp danach nicht mehr überschreiben. */
+export const saveTips = (id, name, tips) =>
+  setDoc(doc(db, 'tipping', 'current', 'tips', id), { name, tips, updatedAt: Date.now(), locked: true });
+
+/** Nur Admins: Tipp zum Überschreiben freigeben. */
+export const unlockTips = (id) => setDoc(doc(db, 'tipping', 'current', 'tips', id), { locked: false }, { merge: true });
+
+/** Nur Admins. */
+export async function listTips() {
+  const snap = await getDocs(collection(db, 'tipping', 'current', 'tips'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function deleteTipping() {
+  const tips = await listTips();
+  for (let i = 0; i < tips.length; i += 400) {
+    const batch = writeBatch(db);
+    tips.slice(i, i + 400).forEach((t) => batch.delete(doc(db, 'tipping', 'current', 'tips', t.id)));
+    await batch.commit();
+  }
+  await deleteDoc(TIPPING());
+}
+
+/** Beendet die Tipprunde: wird zur normalen Halbserie (Tabelle), die Tipps wandern mit. */
+export async function tippingToRound(t) {
+  const tips = await listTips();
+  const players = tips.map((p) => ({
+    name: p.name,
+    tips: Object.fromEntries(Object.entries(p.tips ?? {}).filter(([, v]) => Number.isFinite(v?.h) && Number.isFinite(v?.g))),
+  }));
+  const id = await saveRound({
+    jahr: t.jahr, typ: t.typ, excelResults: [], players,
+    order: t.order.map((o) => ({ block: o.spieltag - t.first + 1, home: o.home, away: o.away, key: o.key })),
+  });
+  await deleteTipping();
+  return id;
+}
+
+/** Excel-Tippschein per Mail: Dokument für die Firebase-Erweiterung "Trigger Email from Firestore" (Sammlung `mail`). */
+export const queueExcelMail = ({ tipperId: id, to, subject, text, filename, base64 }) =>
+  addDoc(collection(db, 'mail'), {
+    tipperId: id, to: [to],
+    message: { subject, text, attachments: [{ filename, content: base64, encoding: 'base64' }] },
+  });

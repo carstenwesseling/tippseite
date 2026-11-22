@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Vorschlag C: Matchday</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tippen-base.css">
+<link rel="stylesheet" href="tippen.css">
+<style>
+/* Vorschlag C "Matchday": wie eine Sport-App. Vereine mit vollem Namen untereinander, Tippfelder rechts daneben (Daumen). Name wählen + Fortschritt in der Leiste unten. */
+.tp-c { padding-bottom: 0; }
+.tp-c .chips { margin-bottom: 4px; }
+.tp-c .topbox { display: contents; }
+.tp-c .dh { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 6px; font: 600 12px/1 var(--text); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.tp-c .dh span:first-child { color: var(--pitch); }
+.tp-c .ms { display: grid; gap: 8px; margin-inline: max(12px, env(safe-area-inset-left, 0px)); }
+.tp-c .m { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px 8px 14px; }
+.tp-c .names { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.tp-c .t { font: 600 16px/1.35 var(--text); }
+.tp-c .ins { display: grid; gap: 4px; flex: none; }
+.tp-c .tip { width: 52px; height: 38px; background: var(--bg); font-size: 24px; border-radius: 8px; }
+.tp-c .full .m { border-color: var(--pitch); }
+.tp-c .full .cnt::before { content: "✓ "; }
+.tp-c .dock { position: sticky; bottom: 0; z-index: 15; margin-top: 16px; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 16px #0000000d; display: grid; padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px)); }
+.tp-c .dock { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; }
+.tp-c .dock .prog { display: contents; }
+.tp-c .dock .pbar { order: 1; } .tp-c .dock .pnum { order: 2; } .tp-c .dock .who { order: 3; } .tp-c .dock .send { order: 4; }
+.tp-c .dock .who label, .tp-c .dock .mlink { display: none; }
+
+</style>
+</head>
+<body>
+<header class="bar"><div class="gut"><div class="bar-in">
+  <a class="brand" href="index.html"><i></i>Tippspiel</a>
+  <nav><a href="index.html">Halbserien</a><a href="tippen-c.html" aria-current="page">Tippen</a><a href="tippen-mitglieder.html">Verwaltung</a></nav>
+  <span class="avatar">CW</span>
+</div></div></header>
+<main>
+  <h1 class="gut" style="margin-inline:0">Rückrunde 26/27 tippen</h1>
+  <div id="app"></div>
+</main>
+<script src="tippen.js"></script>
+<script>Tippen.mount({ root: document.getElementById('app'), variant: 'c', layout: { top: ['chips'], dock: ['who', 'prog'] } });</script>
+</body>
+</html>

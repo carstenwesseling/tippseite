@@ -56,3 +56,13 @@ export const BUNDESLIGA_FALLBACK = [
   'Borussia Mönchengladbach', 'VfB Stuttgart', '1. FC Union Berlin', 'Borussia Dortmund', 'FC St. Pauli',
   'VfL Wolfsburg', '1. FC Heidenheim 1846', 'SC Paderborn 07', 'SV 07 Elversberg',
 ];
+
+// Kurznamen für Tippformular und Excel-Tippschein (unbekannte Vereine behalten den vollen Namen).
+const SHORT = {
+  bayern: 'Bayern', leipzig: 'Leipzig', hoffenheim: 'Hoffenheim', leverkusen: 'Leverkusen', bremen: 'Bremen',
+  frankfurt: 'Frankfurt', augsburg: 'Augsburg', freiburg: 'Freiburg', koeln: 'Köln', mainz: 'Mainz',
+  hamburg: 'Hamburg', gladbach: 'Gladbach', stuttgart: 'Stuttgart', union: 'Union', dortmund: 'Dortmund',
+  stpauli: 'St. Pauli', wolfsburg: 'Wolfsburg', heidenheim: 'Heidenheim', schalke: 'Schalke', hertha: 'Hertha',
+  bochum: 'Bochum', darmstadt: 'Darmstadt', kiel: 'Kiel',
+};
+export const shortName = (name) => SHORT[teamKey(name)] ?? String(name).trim();
