@@ -27,16 +27,42 @@ export async function renderBestenliste(app, session) {
       agg.set(k, a);
     }
   }
-  const rows = [...agg.values()].map((a) => ({ ...a, schnitt: a.total / a.teilnahmen }))
-    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'de'));
-  rows.forEach((r, i) => { r.rank = i > 0 && rows[i - 1].total === r.total ? rows[i - 1].rank : i + 1; });
+  const all = [...agg.values()].map((a) => ({ ...a, schnitt: a.total / a.teilnahmen }));
+  const byName = (a, b) => a.name.localeCompare(b.name, 'de');
+  const num = { schnitt: (r) => r.schnitt, total: (r) => r.total, teilnahmen: (r) => r.teilnahmen };
+  // Rang nach dem gewählten Kriterium (beste = 1, Gleichstand = gleicher Rang); Gleichstände nach Schnitt, Punkten, Name.
+  const rank = (key) => {
+    const sorted = [...all].sort((a, b) => num[key](b) - num[key](a) || b.schnitt - a.schnitt || b.total - a.total || byName(a, b));
+    sorted.forEach((r, i) => { r.rank = i > 0 && num[key](sorted[i - 1]) === num[key](r) ? sorted[i - 1].rank : i + 1; });
+    return sorted;
+  };
+  const sort = { key: 'schnitt', dir: 1 }; // Beim Aufruf nach Schnitt sortiert und nummeriert
+  let rankKey = 'schnitt';
 
-  app.innerHTML = `<div class="gut head"><div class="hl"><h1 class="plain">Bestenliste</h1>
+  const body = () => {
+    const best = rank(rankKey);
+    const rows = sort.key === 'name' ? [...all].sort(byName) : best;
+    if (sort.dir < 0) rows.reverse();
+    return rows;
+  };
+  const th = (key, cls, label) => `<th class="${cls} sortable" data-sort="${key}">${label}${sort.key === key ? (sort.dir > 0 === (key === 'name') ? ' ▲' : ' ▼') : ''}</th>`;
+  const render = () => {
+    const rows = body();
+    app.innerHTML = `<div class="gut head"><div class="hl"><h1 class="plain">Bestenliste</h1>
     <div class="meta">Alle Spieltage und Halbserien · ${full.length} Halbserien · ${rows.length} Mitglieder</div></div></div>
-    ${rows.length ? `<div class="wrap"><table class="best-tbl"><thead><tr><th class="c1">#</th><th class="c2">Name</th>
-      <th class="stat">Teilnahmen</th><th class="stat">Schnitt</th><th class="ct">Pkt</th></tr></thead><tbody>${rows.map((r) => `
+    ${rows.length ? `<div class="wrap"><table class="best-tbl"><thead><tr><th class="c1">#</th>${th('name', 'c2', 'Name')}
+      ${th('teilnahmen', 'stat', 'Teilnahmen')}${th('schnitt', 'stat', 'Schnitt')}${th('total', 'ct', 'Pkt')}</tr></thead><tbody>${rows.map((r) => `
       <tr class="${r.rank <= 3 ? 'top' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
       <td class="stat">${r.teilnahmen}</td><td class="stat">${fmt(r.schnitt)}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table></div>
-      <div class="gut hint"><span>Schnitt = Gesamtpunkte ÷ Teilnahmen (Halbserien)</span></div>`
+      <div class="gut hint"><span>Schnitt = Gesamtpunkte ÷ Teilnahmen (Halbserien) · Nummerierung nach ${{ schnitt: 'Schnitt', total: 'Punkten', teilnahmen: 'Teilnahmen' }[rankKey]}; Klick auf eine Spaltenüberschrift sortiert neu</span></div>`
     : '<div class="msg">Noch keine Daten vorhanden.</div>'}`;
+    app.querySelectorAll('th[data-sort]').forEach((h) => h.addEventListener('click', () => {
+      const key = h.dataset.sort;
+      sort.dir = sort.key === key ? -sort.dir : 1; // erster Klick: beste zuerst bzw. Name A–Z
+      sort.key = key;
+      if (key !== 'name') rankKey = key; // Nummerierung folgt der Sortierung
+      render();
+    }));
+  };
+  render();
 }
