@@ -8,7 +8,18 @@ import { esc, $ } from '../util.js';
 const byName = (a, b) => a.name.localeCompare(b.name, 'de');
 const EMAIL = /^\S+@\S+\.\S+$/;
 
+const deniedMsg = (e) => /permission/i.test(e?.code + ' ' + e?.message)
+  ? 'Keine Berechtigung. Die Firestore-Regeln sind vermutlich noch nicht eingespielt: npx firebase-tools deploy --only firestore:rules'
+  : e.message;
+
 export async function renderMembers(host) {
+  try { await renderMembersInner(host); } catch (e) {
+    console.error(e);
+    host.innerHTML = `<div class="card"><h3>Mitglieder</h3><div class="msg err">${esc(deniedMsg(e))}</div></div>`;
+  }
+}
+
+async function renderMembersInner(host) {
   host.innerHTML = '<div class="card"><h3>Mitglieder</h3><p class="muted">Lade …</p></div>';
   const [saved, mails, rounds, tipping] = await Promise.all([listMembers(), listMemberMails().catch(() => ({})), listRounds(), getTipping().catch(() => null)]);
   // Wer hat in der aktuellsten Halbserie mitgetippt? -> Haken vorbelegt
@@ -107,7 +118,11 @@ export async function renderMembers(host) {
 }
 
 export async function renderTipping(host, onChange) {
-  const t = await getTipping().catch(() => null);
+  let t;
+  try { t = await getTipping(); } catch (e) {
+    host.innerHTML = `<div class="card"><h3>Tipprunde</h3><div class="msg err">${esc(deniedMsg(e))}</div></div>`;
+    return;
+  }
   const now = new Date();
   const thisYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
   const title = (typ, jahr) => `${typ === 'hin' ? 'Hinrunde' : 'Rückrunde'} ${String(jahr).slice(2)}/${String(+jahr + 1).slice(2)}`;
