@@ -34,7 +34,7 @@ export async function getRound(id) {
 export async function saveRound({ jahr, typ, order, excelResults, players, kind, liga, spieltage, totalsOnly }) {
   const ref = doc(collection(db, 'rounds'));
   await setDoc(ref, {
-    title: roundCode({ jahr, typ }), jahr, typ, order: order ?? [], excelResults: excelResults ?? [],
+    title: roundCode({ jahr, typ, liga }), jahr, typ, order: order ?? [], excelResults: excelResults ?? [],
     playerCount: players.length, createdAt: Date.now(),
     ...(kind ? { kind } : {}), ...(liga ? { liga } : {}), ...(spieltage ? { spieltage } : {}), ...(totalsOnly ? { totalsOnly: true } : {}),
   });

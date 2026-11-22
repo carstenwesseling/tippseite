@@ -182,6 +182,8 @@ export function parseChronik(data, { fixes = {} } = {}) {
       }
     }
     if (!players.length) { ignored.push(sheet); continue; }
+    const twin = rounds.find((x) => x.jahr === meta.jahr && x.typ === meta.typ && x.liga === meta.liga);
+    if (twin) warnings.push(`Blätter „${twin.sheet}“ und „${sheet}“ bezeichnen dieselbe Halbserie und Liga – vermutlich ist die Liga im Blattnamen falsch (z. B. L1 statt L2).`);
     rounds.push({ sheet, ...meta, spieltage: cols.map((_, i) => i + 1), players, fixes: applied, ...(totalsOnly ? { totalsOnly: true } : {}) });
   }
   return rounds.length || issues.length ? { rounds, ignored, warnings, issues } : null;

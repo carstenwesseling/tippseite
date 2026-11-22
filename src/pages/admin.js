@@ -6,7 +6,7 @@ import { BUNDESLIGA_FALLBACK } from '../teams.js';
 import {
   saveRound, addPlayersToRound, deleteRound, deleteAllData, listRounds, getSeasonMatches, ensureMembers, listMembers, memberNames,
 } from '../db.js';
-import { detectHalbserie, nameFromFilename, roundCode, roundLabel, seasonShort, normName } from '../halbserie.js';
+import { detectHalbserie, nameFromFilename, roundCode, roundLabel, sameHalbserie, seasonShort, normName } from '../halbserie.js';
 import { esc, $ } from '../util.js';
 
 /** Zugriffsschutz für alle Verwaltungsseiten. Gibt true zurück, wenn der Nutzer Admin ist. */
@@ -69,7 +69,7 @@ export async function renderAdmin(app, session, flash = '') {
     const jahr = Number($('#jahr').value);
     const typ = $('#typ').value;
     const code = roundCode({ jahr, typ });
-    const existing = rounds.find((r) => r.jahr === jahr && r.typ === typ);
+    const existing = rounds.find((r) => sameHalbserie(r, { jahr, typ }));
     $('#code').textContent = code;
     $('#target').innerHTML = existing
       ? `<option value="${esc(existing.id)}">Zu vorhandener Halbserie ${esc(code)} hinzufügen (${existing.playerCount} Mitspieler)</option>
@@ -124,9 +124,9 @@ export async function renderAdmin(app, session, flash = '') {
         .map((w) => `<div class="msg warn">${esc(w)}</div>`).join('')}
       <h4>Halbserien</h4>
       <div class="rlist">${chronik.rounds.map((r, i) => {
-        const ex = rounds.find((x) => x.jahr === r.jahr && x.typ === r.typ);
+        const ex = rounds.find((x) => sameHalbserie(x, r));
         return `<label class="ritem${r.liga === 2 ? ' liga2' : ''}"><input type="checkbox" data-r="${i}" checked />
-          <span>${esc(roundLabel(r))}${r.liga ? ` · Liga ${r.liga}` : ''} <span class="muted">(Blatt „${esc(r.sheet)}“, ${r.players.length} Mitspieler)</span>
+          <span>${esc(roundLabel(r))} <span class="muted">(Blatt „${esc(r.sheet)}“, ${r.players.length} Mitspieler)</span>
           ${ex ? `<span class="rnote">Es gibt schon ${esc(roundLabel(ex))} – ${ex.kind === 'chronik' ? 'wird ersetzt' : 'wird als zusätzliche Halbserie angelegt'}</span>` : ''}</span></label>`;
       }).join('')}</div>
       ${Object.keys(aliasMap).length ? `<h4>Bekannte Schreibweisen (Mitglieder-Aliase)</h4>
@@ -176,10 +176,12 @@ export async function renderAdmin(app, session, flash = '') {
       const warnings = [];
       const chosen = renameChronik(chronik.rounds.filter((_, i) => $(`[data-r="${i}"]`).checked), map, warnings);
       if (!chosen.length) { $('#cmsg').innerHTML = '<span class="msg err">Keine Halbserie ausgewählt.</span>'; return; }
+      const dup = chosen.find((r, i) => chosen.findIndex((x) => sameHalbserie(x, r)) !== i);
+      if (dup) { $('#cmsg').innerHTML = `<span class="msg err">${esc(roundLabel(dup))} kommt mehrfach vor – bitte nur ein Blatt je Halbserie und Liga auswählen (Blattname prüfen, z. B. L1/L2).</span>`; return; }
       $('#cimport').disabled = true;
       try {
         for (const r of chosen) {
-          const old = rounds.find((x) => x.jahr === r.jahr && x.typ === r.typ && x.kind === 'chronik');
+          const old = rounds.find((x) => sameHalbserie(x, r) && x.kind === 'chronik');
           if (old) await deleteRound(old.id);
           await saveRound({ jahr: r.jahr, typ: r.typ, kind: 'chronik', liga: r.liga, spieltage: r.spieltage, totalsOnly: r.totalsOnly, players: r.players });
         }

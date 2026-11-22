@@ -90,6 +90,10 @@ describe('Chronik', () => {
       expect(r.issues[0]).toMatchObject({ kind: 'blank', fix: 'skipblank' });
       expect(parseChronik(d, { fixes: { 'Hinrunde 2010-2011 L1': 'skipblank' } }).rounds[0].players).toHaveLength(2);
     });
+    it('zwei Blätter mit gleicher Halbserie und Liga werden gemeldet', () => {
+      const d = wbMulti({ 'Hinrunde 2010-2011 L1': [head, row('A,A.')], 'Hinrunde 2010-2011 L1 ': [head, row('B,B.')] });
+      expect(parseChronik(d).warnings.join(' ')).toContain('dieselbe Halbserie und Liga');
+    });
     it('korrekte Blätter erzeugen keine Hinweise', () => {
       expect(parseChronik(wbMulti({ 'Hinrunde 2010-2011 L1': [head, row('A,A.')] })).issues).toEqual([]);
     });

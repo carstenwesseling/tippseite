@@ -11,12 +11,14 @@ export const seasonShort = (jahr) => `${yy(jahr)}/${yy(+jahr + 1)}`;
 export const seasonLong = (jahr) => `${jahr}/${yy(+jahr + 1)}`;
 export const typLabel = (typ) => (typ === 'hin' ? 'Hinrunde' : 'Rückrunde');
 /** Kurzname, z. B. "25/26 H" */
-export const roundCode = (r) => `${seasonShort(r.jahr)} ${r.typ === 'hin' ? 'H' : 'R'}`;
+export const roundCode = (r) => `${seasonShort(r.jahr)} ${r.typ === 'hin' ? 'H' : 'R'}${r.liga ? ` L${r.liga}` : ''}`;
 /** Anzeige in Listen, z. B. "2025/26 · Rückrunde" */
-export const roundLabel = (r) => `${seasonLong(r.jahr)} · ${typLabel(r.typ)}`;
+export const roundLabel = (r) => `${seasonLong(r.jahr)} · ${typLabel(r.typ)}${r.liga ? ` · Liga ${r.liga}` : ''}`;
+/** Eine Halbserie ist durch Saison, Hin-/Rückrunde und Liga bestimmt (Liga 1 und Liga 2 derselben Halbserie sind verschieden). */
+export const sameHalbserie = (a, b) => a.jahr === b.jahr && a.typ === b.typ && (a.liga ?? null) === (b.liga ?? null);
 /** Sortierung: neueste Saison zuerst, innerhalb der Saison Rückrunde vor Hinrunde. */
 export const compareRounds = (a, b) =>
-  b.jahr - a.jahr || (a.typ === b.typ ? 0 : a.typ === 'rueck' ? -1 : 1) || (b.createdAt ?? 0) - (a.createdAt ?? 0);
+  b.jahr - a.jahr || (a.typ === b.typ ? 0 : a.typ === 'rueck' ? -1 : 1) || (a.liga ?? 0) - (b.liga ?? 0) || (b.createdAt ?? 0) - (a.createdAt ?? 0);
 
 const toYear = (a) => (a >= 70 ? 1900 + a : 2000 + a);
 const SEP = String.raw`\s*[\/\-_.–]\s*`;
