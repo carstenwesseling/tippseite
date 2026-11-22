@@ -115,6 +115,7 @@ describe('isPlaceholder', () => {
     expect(isPlaceholder('xxx-8')).toBe(false);
     for (let i = 1; i <= 7; i++) expect(isPlaceholder(`xx${i}`)).toBe(true);
     expect(isPlaceholder('xx8')).toBe(false);
+    for (let i = 1; i <= 7; i++) expect(isPlaceholder(`XXX${i}`)).toBe(true);
     expect(isPlaceholder('Reimann,St.')).toBe(false);
   });
 });
