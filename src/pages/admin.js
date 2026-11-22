@@ -50,7 +50,7 @@ export async function renderAdmin(app, session, flash = '') {
       <div id="preview"></div>
     </div>
     <div class="card"><h3>Vorhandene Halbserien</h3>
-      ${rounds.map((r) => `<div class="row"><a href="#/runde/${esc(r.id)}">${esc(roundLabel(r))} · ${r.playerCount} Mitspieler</a>
+      ${rounds.map((r) => `<div class="row${r.liga === 2 ? ' liga2' : ''}"><a href="#/runde/${esc(r.id)}">${esc(roundLabel(r))} · ${r.playerCount} Mitspieler</a>
         <button data-del="${esc(r.id)}">Löschen</button></div>`).join('') || '<span class="muted">Keine</span>'}
       <div class="row"><button id="refresh">Ergebnisse von OpenLigaDB jetzt aktualisieren</button><span id="refmsg" class="muted"></span></div>
     </div>`;
@@ -117,12 +117,12 @@ export async function renderAdmin(app, session, flash = '') {
       ${[...chronik.warnings, ...(skipped.length ? [`Übersprungene Blätter: ${skipped.join(', ')}`] : [])]
         .map((w) => `<div class="msg warn">${esc(w)}</div>`).join('')}
       <h4>Halbserien</h4>
-      ${chronik.rounds.map((r, i) => {
+      <div class="rlist">${chronik.rounds.map((r, i) => {
         const ex = rounds.find((x) => x.jahr === r.jahr && x.typ === r.typ);
-        return `<label style="display:block"><input type="checkbox" data-r="${i}" checked />
-          ${esc(roundLabel(r))}${r.liga ? ` · Liga ${r.liga}` : ''} <span class="muted">(Blatt „${esc(r.sheet)}“, ${r.players.length} Mitspieler)</span>
-          ${ex ? `<span class="msg warn">Es gibt schon ${esc(roundLabel(ex))} – ${ex.kind === 'chronik' ? 'wird ersetzt' : 'wird als zusätzliche Halbserie angelegt'}</span>` : ''}</label>`;
-      }).join('')}
+        return `<label class="ritem${r.liga === 2 ? ' liga2' : ''}"><input type="checkbox" data-r="${i}" checked />
+          <span>${esc(roundLabel(r))}${r.liga ? ` · Liga ${r.liga}` : ''} <span class="muted">(Blatt „${esc(r.sheet)}“, ${r.players.length} Mitspieler)</span>
+          ${ex ? `<span class="rnote">Es gibt schon ${esc(roundLabel(ex))} – ${ex.kind === 'chronik' ? 'wird ersetzt' : 'wird als zusätzliche Halbserie angelegt'}</span>` : ''}</span></label>`;
+      }).join('')}</div>
       ${Object.keys(aliasMap).length ? `<h4>Bekannte Schreibweisen (Mitglieder-Aliase)</h4>
         <div class="muted">${Object.entries(aliasMap).map(([a, b]) => `${esc(a)} → ${esc(b)}`).join(' · ')}</div>` : ''}
       ${groups.length ? `<h4>Namen prüfen – gehören diese zusammen?</h4>
