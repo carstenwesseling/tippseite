@@ -34,9 +34,10 @@ export async function renderBestenliste(app, session) {
       n++;
       for (const row of r.rows) {
         const k = normName(row.name);
-        const a = agg.get(k) ?? { name: row.name, total: 0, teilnahmen: 0 };
+        const a = agg.get(k) ?? { name: row.name, total: 0, teilnahmen: 0, p1: 0, p2: 0, p3: 0 };
         a.total += row.total;
         a.teilnahmen += 1;
+        if (row.rank >= 1 && row.rank <= 3) a[`p${row.rank}`] += 1; // Platz in der Halbserie (Gleichstand = gleicher Platz)
         agg.set(k, a);
       }
     }
@@ -46,7 +47,7 @@ export async function renderBestenliste(app, session) {
   let all = [];
   let nRounds = 0;
   const byName = (a, b) => a.name.localeCompare(b.name, 'de');
-  const num = { schnitt: (r) => r.schnitt, total: (r) => r.total, teilnahmen: (r) => r.teilnahmen };
+  const num = { schnitt: (r) => r.schnitt, total: (r) => r.total, teilnahmen: (r) => r.teilnahmen, p1: (r) => r.p1, p2: (r) => r.p2, p3: (r) => r.p3 };
   // Rang nach dem gewählten Kriterium (beste = 1, Gleichstand = gleicher Rang); Gleichstände nach Schnitt, Punkten, Name.
   const rank = (key) => {
     const sorted = [...all].sort((a, b) => num[key](b) - num[key](a) || b.schnitt - a.schnitt || b.total - a.total || byName(a, b));
@@ -70,10 +71,10 @@ export async function renderBestenliste(app, session) {
     <div class="meta">${SCOPES[scope]} · ${nRounds} Halbserien · ${rows.length} Mitglieder</div></div>
     <div class="seg" role="group" aria-label="Liga">${Object.entries(SCOPES).map(([k, l]) => `<button data-scope="${k}" aria-pressed="${k === scope}">${l}</button>`).join('')}</div></div>
     ${rows.length ? `<div class="wrap"><table class="best-tbl"><thead><tr><th class="c1">#</th>${th('name', 'c2', 'Name')}
-      ${th('teilnahmen', 'stat', 'Teilnahmen')}${th('schnitt', 'stat', 'Schnitt')}${th('total', 'ct', 'Pkt')}</tr></thead><tbody>${rows.map((r) => `
+      ${th('p1', 'stat', '1. Plätze')}${th('p2', 'stat', '2. Plätze')}${th('p3', 'stat', '3. Plätze')}${th('teilnahmen', 'stat', 'Teilnahmen')}${th('schnitt', 'stat', 'Schnitt')}${th('total', 'ct', 'Pkt')}</tr></thead><tbody>${rows.map((r) => `
       <tr class="${r.rank <= 3 ? 'top' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2"><a href="#/bestenliste/${encodeURIComponent(r.name)}">${esc(r.name)}</a></td>
-      <td class="stat">${r.teilnahmen}</td><td class="stat">${fmt(r.schnitt)}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table></div>
-      <div class="gut hint"><span>Schnitt = Gesamtpunkte ÷ Teilnahmen (Halbserien) · Nummerierung nach ${{ schnitt: 'Schnitt', total: 'Punkten', teilnahmen: 'Teilnahmen' }[rankKey]}; Klick auf eine Spaltenüberschrift sortiert neu, Klick auf einen Namen zeigt die Details</span></div>`
+      <td class="stat">${r.p1}</td><td class="stat">${r.p2}</td><td class="stat">${r.p3}</td><td class="stat">${r.teilnahmen}</td><td class="stat">${fmt(r.schnitt)}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table></div>
+      <div class="gut hint"><span>Schnitt = Gesamtpunkte ÷ Teilnahmen (Halbserien) · Plätze = Platzierungen über alle abgeschlossenen Halbserien der Liga (Gleichstand = gleicher Platz) · Nummerierung nach ${{ schnitt: 'Schnitt', total: 'Punkten', teilnahmen: 'Teilnahmen', p1: '1. Plätzen', p2: '2. Plätzen', p3: '3. Plätzen' }[rankKey]}; Klick auf eine Spaltenüberschrift sortiert neu, Klick auf einen Namen zeigt die Details</span></div>`
     : '<div class="msg">Noch keine Daten vorhanden.</div>'}`;
     app.querySelectorAll('button[data-scope]').forEach((b) => b.addEventListener('click', () => { scope = b.dataset.scope; render(); }));
     app.querySelectorAll('th[data-sort]').forEach((h) => h.addEventListener('click', () => {
