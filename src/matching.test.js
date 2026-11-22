@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
-import { planTeams, findNameGroups, mergePlayers } from './matching.js';
+import { planTeams, findNameGroups, findSpellingVariants, mergePlayers } from './matching.js';
 import { parseWorkbook } from './excel.js';
 import { BUNDESLIGA_FALLBACK } from './teams.js';
 
@@ -43,5 +43,25 @@ describe('Umbenennen beim Einlesen', () => {
     const b = parseWorkbook(new Uint8Array(buf), { rename: { Paderborn: 'SC Paderborn 07' } });
     expect(b.order[0].home).toBe('SC Paderborn 07');
     expect(rows).toBeTruthy();
+  });
+});
+
+describe('Schreibweisen', () => {
+  it('schlägt je abweichende Schreibweise einen Vorschlag vor', () => {
+    const counts = new Map([['Möller,H.', 40], ['Möller.H.', 1], ['Müser,M.', 45], ['Müser.M.', 1], ['Müser, M', 1]]);
+    const v = findSpellingVariants([...counts.keys()], { counts });
+    expect(v).toEqual(expect.arrayContaining([
+      { from: 'Möller.H.', to: 'Möller,H.' }, { from: 'Müser.M.', to: 'Müser,M.' }, { from: 'Müser, M', to: 'Müser,M.' },
+    ]));
+    expect(v).toHaveLength(3);
+  });
+  it('bevorzugt bekannte Mitglieder und trennt verschiedene Personen', () => {
+    const v = findSpellingVariants(['Kleeschulte,H.', 'Kleeschulte,Mrt.', 'Kleeschulte,M.', 'Wesseling, C.', 'Wesseling,C.'], { known: new Set(['Wesseling, C.']) });
+    expect(v).toEqual([{ from: 'Wesseling,C.', to: 'Wesseling, C.' }]);
+  });
+  it('Namen werden ohne Leerzeichen nach dem Komma gelesen', async () => {
+    const { canonName } = await import('./halbserie.js');
+    expect(canonName('  Müller ,  A. ')).toBe('Müller,A.');
+    expect(canonName('Schneider, Chr.  (TV)')).toBe('Schneider,Chr. (TV)');
   });
 });
