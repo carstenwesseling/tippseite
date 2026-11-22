@@ -1,6 +1,6 @@
 import { getRound, getSeasonMatches, listRounds } from '../db.js';
 import { buildTable } from '../scoring.js';
-import { esc, $, enableSort } from '../util.js';
+import { esc, $ } from '../util.js';
 import { roundLabel, compareRounds } from '../halbserie.js';
 import { matchState, currentSpieltag, needsPolling } from '../openliga.js';
 
@@ -71,6 +71,7 @@ export async function renderTable(app, session, id) {
   };
   if (round.kind !== 'chronik') await load(false);
 
+  const sort = { key: 'rank', dir: 'asc' }; // bleibt bei automatischer Aktualisierung erhalten
   const draw = () => {
   const { source, spieltage, results, matches } = resolveResults(round, api?.matches, { live: true });
   const cur = currentSpieltag(matches); // Spieltag läuft: Spalte farbig markieren, bis das letzte Spiel beendet ist
@@ -96,8 +97,28 @@ export async function renderTable(app, session, id) {
 
   const options = [...(rounds.length ? rounds : [round])].sort(compareRounds).map((r) => `<option value="${esc(r.id)}"${r.id === id ? ' selected' : ''}>${esc(roundLabel(r))}</option>`).join('');
 
-  const tableHtml = `<table><thead><tr><th class="c1">#</th><th class="c2">Name</th>${spieltage.map((d) => `<th class="day${d === cur ? ' cur' : ''}">${d}</th>`).join('')}
-    <th class="stat sep">2er</th><th class="stat">1er</th><th class="ct">Pkt</th></tr></thead><tbody>${table.map((r) => `
+  // Sortierung per Klick auf die Spaltenüberschrift. Der Rang (linke Spalte) bleibt immer an den Punkten orientiert.
+  const sortVal = (r, key) => {
+    if (key === 'name') return r.name;
+    if (key === 'rank') return -r.total;
+    if (key === 'zwei' || key === 'eins' || key === 'total') return r[key] ?? -1;
+    const v = val(r, Number(key.slice(1)));
+    return v == null ? -1 : v;
+  };
+  const sortedRows = () => {
+    const sign = sort.dir === 'asc' ? 1 : -1;
+    return [...table].sort((a, b) => {
+      const x = sortVal(a, sort.key), y = sortVal(b, sort.key);
+      const c = typeof x === 'string' ? x.localeCompare(y, 'de') : x - y;
+      return sign * c || b.total - a.total || a.name.localeCompare(b.name, 'de');
+    });
+  };
+  const th = (key, label, cls) => {
+    const on = sort.key === key;
+    return `<th class="${cls}" data-sort="${key}" aria-sort="${on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sortb" data-sort="${key}">${label}<span class="arr" aria-hidden="true">${on ? (sort.dir === 'asc' ? '▲' : '▼') : ''}</span></button></th>`;
+  };
+  const tableHtml = () => `<table><thead><tr>${th('rank', '#', 'c1')}${th('name', 'Name', 'c2')}${spieltage.map((d) => th(`d${d}`, d, `day${d === cur ? ' cur' : ''}`)).join('')}
+    ${th('zwei', '2er', 'stat sep')}${th('eins', '1er', 'stat')}${th('total', 'Pkt', 'ct')}</tr></thead><tbody>${sortedRows().map((r) => `
     <tr class="${r.rank <= 3 ? 'top' : ''} ${isMe(session, r.name) ? 'me' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
     ${spieltage.map((d) => { const v = val(r, d); const c = d === cur ? ' cur' : ''; return v == null ? `<td class="day pend${c}">${r.totalOnly ? '-' : '·'}</td>` : `<td class="day ${isSolo(v, d) ? 'solo' : isBest(v, d) ? 'best' : ''}${c}">${v}</td>`; }).join('')}
     <td class="stat sep">${r.zwei ?? '–'}</td><td class="stat">${r.eins ?? '–'}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
@@ -134,7 +155,7 @@ export async function renderTable(app, session, id) {
       <div class="seg" role="group" aria-label="Ansicht"><button data-v="tabelle" aria-pressed="true">Tabelle</button><button data-v="liste" aria-pressed="false">Liste</button></div>
     </div>
     <section class="view" id="tabelle" aria-label="Tabelle">
-      <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar">${tableHtml}</div>
+      <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar">${tableHtml()}</div>
       <div class="gut hint"><span><i></i>Tagesbester</span><span><i class="solokey"></i>Alleiniger Spieltagssieger</span>${cur !== null ? `<span><i class="curkey"></i>Spieltag ${cur} läuft – Punkte vorläufig, Aktualisierung jede Minute</span>` : ''}<span>Seitlich wischen für alle Spieltage</span></div>
     </section>
     <section class="view" id="liste" aria-label="Liste" hidden><div class="list" id="list">${listHtml}</div></section>
@@ -148,6 +169,15 @@ export async function renderTable(app, session, id) {
   };
   setView(getView());
   app.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.v)));
+  app.querySelector('.wrap').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sort]'); if (!b) return;
+    const key = b.dataset.sort;
+    if (sort.key === key) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+    else { sort.key = key; sort.dir = key === 'name' || key === 'rank' ? 'asc' : 'desc'; }
+    const wrap = e.currentTarget, left = wrap.scrollLeft;
+    wrap.innerHTML = tableHtml();
+    wrap.scrollLeft = left;
+  });
   $('#round').addEventListener('change', (e) => { location.hash = `#/runde/${e.target.value}`; });
   $('#list').addEventListener('click', (e) => {
     const b = e.target.closest('.lrow'); if (!b) return;
@@ -161,7 +191,6 @@ export async function renderTable(app, session, id) {
   const wrap = app.querySelector('.wrap');
   if (wrap) wrap.scrollLeft = prev.left;
   window.scrollTo(0, prev.top);
-  enableSort(app);
   };
 
   draw();
