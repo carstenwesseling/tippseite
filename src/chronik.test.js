@@ -71,13 +71,17 @@ describe('Chronik', () => {
       expect(r.issues[0].problem).toContain('nur 5 Spieltage');
       expect(parseChronik(d, { fixes: { 'Hinrunde 2005-2006': 'positional' } }).rounds[0].spieltage).toHaveLength(17);
     });
-    it('nur Gesamtpunkte: Hinweis, Import nur auf Wunsch als Sammel-Spieltag', () => {
+    it('nur Gesamtpunkte: Summe in die Summenspalte, Spieltage leer', () => {
       const d = wbMulti({ 'Hinrunde 1998-1999': [[null, null, 'Gesamt'], ['1.', 'A,A.', 83], [null, 'B,B.', 70]] });
       const r = parseChronik(d);
       expect(r.issues[0]).toMatchObject({ kind: 'totals', fix: 'totals', recommended: false, applied: false });
       const t = parseChronik(d, { fixes: { 'Hinrunde 1998-1999': 'totals' } }).rounds[0];
-      expect(t.spieltage).toEqual([1]);
-      expect(buildTable(t.players, [], t.spieltage)[0].total).toBe(83);
+      expect(t.totalsOnly).toBe(true);
+      expect(t.spieltage).toHaveLength(17);
+      expect(t.players[0]).toEqual({ name: 'A,A.', perDay: {}, total: 83 });
+      const table = buildTable(t.players, [], t.spieltage);
+      expect(table[0]).toMatchObject({ name: 'A,A.', total: 83, totalOnly: true });
+      expect(table[1].total).toBe(70);
     });
     it('Spieler unter einer Leerzeile: Hinweis und Korrektur', () => {
       const d = wbMulti({ 'Hinrunde 2010-2011 L1': [head, row('A,A.'), [], row('B,B.')] });
