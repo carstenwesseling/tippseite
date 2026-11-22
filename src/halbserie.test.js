@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
-import { detectHalbserie, nameFromFilename, roundCode, roundLabel, seasonShort, normName, isGenericSheetName } from './halbserie.js';
+import { detectHalbserie, nameFromFilename, roundCode, roundLabel, sameHalbserie, compareRounds, seasonShort, normName, isGenericSheetName } from './halbserie.js';
 import { parseWorkbook, mergeParsed } from './excel.js';
 
 describe('detectHalbserie', () => {
@@ -75,5 +75,22 @@ describe('Einzelne Arbeitsblätter', () => {
     const m = mergeParsed([a, b]);
     expect(m.players.map((x) => x.name).sort()).toEqual(['A', 'B']);
     expect(m.warnings.some((w) => w.includes('mehrfach'))).toBe(true);
+  });
+});
+
+describe('Liga als Teil der Halbserie', () => {
+  it('Bezeichnungen mit Liga', () => {
+    expect(roundCode({ jahr: 2010, typ: 'hin', liga: 2 })).toBe('10/11 H L2');
+    expect(roundLabel({ jahr: 2010, typ: 'hin', liga: 1 })).toBe('2010/11 · Hinrunde · Liga 1');
+  });
+  it('Liga 1 und Liga 2 derselben Halbserie sind verschieden', () => {
+    const l1 = { jahr: 2010, typ: 'hin', liga: 1 };
+    expect(sameHalbserie(l1, { ...l1, liga: 2 })).toBe(false);
+    expect(sameHalbserie(l1, { ...l1 })).toBe(true);
+    expect(sameHalbserie({ jahr: 2010, typ: 'hin' }, { jahr: 2010, typ: 'hin', liga: null })).toBe(true);
+  });
+  it('sortiert Liga 1 vor Liga 2', () => {
+    const rs = [{ jahr: 2010, typ: 'hin', liga: 2 }, { jahr: 2010, typ: 'hin', liga: 1 }];
+    expect(rs.sort(compareRounds).map((r) => r.liga)).toEqual([1, 2]);
   });
 });
