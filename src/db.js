@@ -80,6 +80,24 @@ export async function deleteRound(id) {
   await deleteDoc(doc(db, 'rounds', id));
 }
 
+/**
+ * Löscht alle Daten: Halbserien samt Mitspielern, Mitglieder und den Ergebnis-Cache.
+ * Admin-Einträge bleiben erhalten. Gibt die Anzahl gelöschter Halbserien/Mitglieder zurück.
+ */
+export async function deleteAllData() {
+  const rounds = await listRounds();
+  for (const r of rounds) await deleteRound(r.id);
+  const members = await getDocs(collection(db, 'members'));
+  const results = await getDocs(collection(db, 'results'));
+  const rest = [...members.docs, ...results.docs];
+  for (let i = 0; i < rest.length; i += 400) {
+    const batch = writeBatch(db);
+    rest.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  return { rounds: rounds.length, members: members.size, results: results.size };
+}
+
 // ---- Ergebnisse (Cache in Firestore, Quelle OpenLigaDB) ----
 /**
  * Liefert die Spiele einer Saison. Frischer Cache -> Cache; sonst API.

@@ -4,7 +4,7 @@ import { parseChronik, renameChronik } from '../chronik.js';
 import { fetchTeams } from '../openliga.js';
 import { BUNDESLIGA_FALLBACK } from '../teams.js';
 import {
-  saveRound, addPlayersToRound, deleteRound, listRounds, getSeasonMatches, ensureMembers, listMembers, memberNames,
+  saveRound, addPlayersToRound, deleteRound, deleteAllData, listRounds, getSeasonMatches, ensureMembers, listMembers, memberNames,
 } from '../db.js';
 import { detectHalbserie, nameFromFilename, roundCode, roundLabel, seasonShort, normName } from '../halbserie.js';
 import { esc, $ } from '../util.js';
@@ -53,6 +53,12 @@ export async function renderAdmin(app, session, flash = '') {
       ${rounds.map((r) => `<div class="row${r.liga === 2 ? ' liga2' : ''}"><a href="#/runde/${esc(r.id)}">${esc(roundLabel(r))} · ${r.playerCount} Mitspieler</a>
         <button data-del="${esc(r.id)}">Löschen</button></div>`).join('') || '<span class="muted">Keine</span>'}
       <div class="row"><button id="refresh">Ergebnisse von OpenLigaDB jetzt aktualisieren</button><span id="refmsg" class="muted"></span></div>
+    </div>
+    <div class="card"><h3>Alle Daten löschen</h3>
+      <p class="muted">Löscht alle Halbserien samt Mitspielern, alle Mitglieder und die zwischengespeicherten Ergebnisse. Admin-Zugänge bleiben bestehen.
+        Das kann nicht rückgängig gemacht werden.</p>
+      <div class="row"><label>Zur Bestätigung <strong>LÖSCHEN</strong> eingeben <input id="wipeconfirm" autocomplete="off" style="width:8rem" /></label>
+        <button id="wipe" disabled>Alle Daten löschen</button><span id="wipemsg"></span></div>
     </div>`;
 
   let parsed = null;
@@ -326,6 +332,20 @@ export async function renderAdmin(app, session, flash = '') {
     await deleteRound(b.dataset.del);
     renderAdmin(app, session);
   }));
+
+  $('#wipeconfirm').addEventListener('input', () => { $('#wipe').disabled = $('#wipeconfirm').value.trim() !== 'LÖSCHEN'; });
+  $('#wipe').addEventListener('click', async () => {
+    if (!confirm('Wirklich ALLE Daten (Halbserien, Mitspieler, Mitglieder, Ergebnisse) unwiderruflich löschen?')) return;
+    $('#wipe').disabled = true;
+    $('#wipemsg').textContent = 'Lösche …';
+    try {
+      const n = await deleteAllData();
+      renderAdmin(app, session, `<div class="msg ok">Alle Daten gelöscht: ${n.rounds} Halbserien, ${n.members} Mitglieder, ${n.results} gespeicherte Ergebnis-Saisons.</div>`);
+    } catch (err) {
+      $('#wipemsg').innerHTML = `<span class="msg err">${esc(err.message)}</span>`;
+      $('#wipe').disabled = false;
+    }
+  });
 
   $('#refresh').addEventListener('click', async () => {
     $('#refmsg').textContent = 'Lade …';
