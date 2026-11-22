@@ -53,7 +53,7 @@ h1.plain { margin: 0; font: 700 22px/1.15 var(--display); text-transform: upperc
 .wrap table { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; font-size: 13.5px; }
 .wrap th, .wrap td { padding: 0 8px; height: 40px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--line); background: var(--surface); }
 .wrap tbody tr:last-child td { border-bottom: 0; }
-.wrap thead th { position: sticky; top: 0; z-index: 3; height: 34px; font: 600 11px/1 var(--text); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.wrap thead th { position: sticky; top: 0; z-index: 3; height: 38px; font: 700 14px/1 var(--display); color: var(--pitch-ink); background: var(--pitch); text-transform: uppercase; letter-spacing: .08em; border-bottom-color: var(--pitch); }
 .wrap tr.me td { background: var(--me); }
 .c1, .c2, .ct { position: sticky; z-index: 2; }
 .wrap thead .c1, .wrap thead .c2, .wrap thead .ct { z-index: 5; }
@@ -156,7 +156,7 @@ main > h2 { margin-inline: max(16px, env(safe-area-inset-left, 0px)); font: 700 
 .scroll table { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; font-size: 13.5px; }
 .scroll th, .scroll td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
 .scroll th:first-child, .scroll td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
-.scroll thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.scroll thead th { position: sticky; top: 0; z-index: 2; background: var(--pitch); font: 700 14px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--pitch-ink); }
 .scroll thead th:first-child { z-index: 3; }
 .scroll th.sortable { cursor: pointer; user-select: none; }
 .scroll td.total { font-weight: 700; }
@@ -174,6 +174,6 @@ input[type="file"] { max-width: 100%; }
 
 /* Laufender Spieltag: Spalte farbig markiert, bis das letzte Spiel beendet ist */
 .wrap th.day.cur, .wrap td.day.cur { background: color-mix(in srgb, var(--pitch) 16%, var(--surface)); }
-.wrap th.day.cur { color: var(--ink); box-shadow: inset 0 2px 0 var(--pitch); }
+.wrap th.day.cur { background: var(--card); color: var(--card-ink); box-shadow: none; }
 .sc.cur, .chart .cur, .days .cur { background: color-mix(in srgb, var(--pitch) 16%, transparent); border-radius: 3px; }
 .curkey { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--pitch) 35%, var(--surface)); margin-right: 6px; vertical-align: -1px; }
