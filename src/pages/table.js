@@ -5,6 +5,9 @@ import { roundLabel, compareRounds } from '../halbserie.js';
 
 /** Ergebnisse + Spieltage einer Halbserie aus API-Spielen ableiten (Fallback: Ergebnisse aus der Excel-Datei). */
 export function resolveResults(round, apiMatches) {
+  if (round.kind === 'chronik') { // Punkte je Spieltag stehen direkt bei den Spielern
+    return { source: 'Chronik (Punkte je Spieltag)', spieltage: round.spieltage ?? [], results: [] };
+  }
   const byKey = new Map((apiMatches ?? []).map((m) => [m.key, m]));
   const inRound = round.order.map((o) => byKey.get(o.key)).filter(Boolean);
   if (inRound.length) {
@@ -35,7 +38,7 @@ export async function renderTable(app, session, id) {
   const [round, rounds] = await Promise.all([getRound(id), listRounds().catch(() => [])]);
   if (!round) { app.innerHTML = '<div class="msg err">Halbserie nicht gefunden.</div>'; return; }
   let api = null, info = '';
-  try {
+  if (round.kind !== 'chronik') try {
     api = await getSeasonMatches(round.jahr, { canWrite: session.isAdmin });
     info = `Ergebnisse: ${api.source}, Stand ${new Date(api.updatedAt).toLocaleString('de-DE')}`;
   } catch (e) {
@@ -44,14 +47,17 @@ export async function renderTable(app, session, id) {
   const { source, spieltage, results } = resolveResults(round, api?.matches);
   const table = buildTable(round.players, results, spieltage);
 
-  const played = new Set(results.map((r) => r.spieltag));
+  const played = new Set(round.kind === 'chronik'
+    ? round.players.flatMap((p) => Object.keys(p.perDay ?? {}).map(Number)) : results.map((r) => r.spieltag));
   const lastPlayed = played.size ? Math.max(...played) : null;
   const dayMax = Object.fromEntries(spieltage.map((d) => [d, played.has(d) ? Math.max(0, ...table.map((r) => r.perDay[d] ?? 0)) : -1]));
   const max = Math.max(1, ...Object.values(dayMax));
   const val = (r, d) => (played.has(d) ? (r.perDay[d] ?? 0) : null);
   const isBest = (v, d) => v != null && v > 0 && v === dayMax[d];
-  const stand = api ? new Date(api.updatedAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–';
-  const meta = lastPlayed
+  const stand = round.kind === 'chronik' ? 'Chronik' : api ? new Date(api.updatedAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–';
+  const meta = round.kind === 'chronik'
+    ? `Chronik · ${spieltage.length} Spieltage · ${round.players.length} Mitspieler`
+    : lastPlayed
     ? `Stand ${stand} · ${results.length} Spiele · Spieltag ${lastPlayed} von ${Math.max(...spieltage)}`
     : `Stand ${stand} · noch keine Ergebnisse`;
 
@@ -61,7 +67,7 @@ export async function renderTable(app, session, id) {
     <th class="stat sep">2er</th><th class="stat">1er</th><th class="ct">Pkt</th></tr></thead><tbody>${table.map((r) => `
     <tr class="${r.rank <= 3 ? 'top' : ''} ${isMe(session, r.name) ? 'me' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
     ${spieltage.map((d) => { const v = val(r, d); return v == null ? '<td class="day pend">·</td>' : `<td class="day ${isBest(v, d) ? 'best' : ''}">${v}</td>`; }).join('')}
-    <td class="stat sep">${r.zwei}</td><td class="stat">${r.eins}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
+    <td class="stat sep">${r.zwei ?? '–'}</td><td class="stat">${r.eins ?? '–'}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
 
   const listHtml = table.map((r) => {
     const spark = spieltage.map((d) => { const v = val(r, d); return v == null ? '<span class="sc n"><i></i><em></em></span>'
@@ -72,12 +78,12 @@ export async function renderTable(app, session, id) {
       <button class="lrow" aria-expanded="false" style="padding-inline:max(16px,env(safe-area-inset-left,0px))">
         <span class="rank ${r.rank === 1 ? 'lead' : ''}">${r.rank}</span>
         <span class="who"><span class="nm">${esc(r.name)}</span><span class="spark" aria-hidden="true">${spark}</span></span>
-        <span class="nums"><span><b>${r.zwei}</b> 2er</span><span><b>${r.eins}</b> 1er</span></span>
+        <span class="nums"><span><b>${r.zwei ?? '–'}</b> 2er</span><span><b>${r.eins ?? '–'}</b> 1er</span></span>
         <span class="pts">${r.total}</span>
       </button>
       <div class="detail gut"><div class="chart">${chart}</div>
         <div class="days">${spieltage.map((d) => `<div>${d}</div>`).join('')}</div>
-        <div class="facts"><span><b>${r.zwei}</b>exakt (2 Pkt)</span><span><b>${r.eins}</b>Tendenz (1 Pkt)</span></div></div>
+        <div class="facts"><span><b>${r.zwei ?? '–'}</b>exakt (2 Pkt)</span><span><b>${r.eins ?? '–'}</b>Tendenz (1 Pkt)</span></div></div>
     </div>`;
   }).join('') + `<div class="gut lg"><span><i></i>Spieltagsbester (meiste Punkte am Spieltag)</span><span>Zahl unter dem Balken = Punkte</span></div>`;
 

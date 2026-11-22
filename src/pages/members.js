@@ -101,7 +101,7 @@ export async function renderMember(app, session, id, flash = '') {
           ${Array.from({ length: maxDays }, (_, i) => `<th>${i + 1}.</th>`).join('')}</tr></thead>
         <tbody>${played.map(({ o, row }) => `<tr>
           <td><a href="#/runde/${esc(o.round.id)}">${esc(roundCode(o.round))}</a> <span class="muted">${esc(roundLabel(o.round))}</span></td>
-          <td>${row.rank}. <span class="muted">/ ${o.table.length}</span></td><td class="total">${row.total}</td><td>${row.zwei}</td><td>${row.eins}</td><td>${row.schnitt.toFixed(2)}</td>
+          <td>${row.rank}. <span class="muted">/ ${o.table.length}</span></td><td class="total">${row.total}</td><td>${row.zwei ?? '–'}</td><td>${row.eins ?? '–'}</td><td>${row.schnitt.toFixed(2)}</td>
           ${Array.from({ length: maxDays }, (_, i) => `<td>${o.spieltage[i] === undefined ? '' : (row.perDay[o.spieltage[i]] ?? 0)}</td>`).join('')}</tr>`).join('')}
         </tbody></table></div>
         <p>${played.length} Halbserien · ${total} Punkte insgesamt</p>

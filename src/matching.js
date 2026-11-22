@@ -46,18 +46,24 @@ export const planTeams = (excelTeams, bundesliga) =>
  * (gleicher Nachname, Tippfehler, nur Ziffern/Zusätze verschieden, Präfix).
  * @returns {string[][]} Gruppen mit ≥ 2 Namen
  */
-export function findNameGroups(names) {
+export function findNameGroups(names, { strict = false } = {}) {
   const info = names.map((n) => {
     const base = strip(n);
     const sur = base.split(',')[0].replace(/[^a-z]/g, '');
-    return { n, letters: base.replace(/[^a-z]/g, ''), sur };
+    const first = base.includes(',') ? base.slice(base.indexOf(',') + 1).replace(/[^a-z]/g, '') : '';
+    return { n, letters: base.replace(/[^a-z]/g, ''), sur, first };
   });
   const parent = info.map((_, i) => i);
   const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
   for (let i = 0; i < info.length; i++) {
     for (let j = i + 1; j < info.length; j++) {
       const a = info[i], b = info[j];
-      const similar = a.letters === b.letters
+      const similar = strict
+        // gleicher Nachname und Vornamen-Kürzel passen zueinander ("M." / "Marcel"), oder nur ein Tippfehler
+        ? a.letters === b.letters
+          || ((a.sur === b.sur || (a.sur.length >= 5 && lev(a.sur, b.sur) <= 1))
+            && (!a.first || !b.first || a.first.startsWith(b.first) || b.first.startsWith(a.first)))
+        : a.letters === b.letters
         || a.letters.startsWith(b.letters) || b.letters.startsWith(a.letters)
         || (a.sur && a.sur === b.sur)
         || (a.sur.length >= 4 && b.sur.length >= 4 && lev(a.sur, b.sur) <= 1);
