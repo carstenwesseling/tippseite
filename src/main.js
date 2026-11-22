@@ -13,11 +13,7 @@ const app = $('#app');
 
 async function route() {
   markNav();
-<<<<<<< HEAD
-  const [, page, id] = location.hash.split('/');
-=======
   const [, page, id, id2] = location.hash.split('/');
->>>>>>> origin/main
   if (!configured) {
     app.innerHTML = `<div class="card"><h2>Firebase nicht konfiguriert</h2>
       <p>Lege eine <code>.env</code> nach Vorlage <code>.env.example</code> an und starte neu.</p></div>`;
@@ -53,15 +49,10 @@ function renderUser() {
 
 function markNav() {
   const admin = location.hash.startsWith('#/admin');
-<<<<<<< HEAD
-  $('#nav-admin').toggleAttribute('aria-current', admin);
-  $('#nav-home').toggleAttribute('aria-current', !admin);
-=======
   const best = location.hash.startsWith('#/bestenliste');
   $('#nav-admin').toggleAttribute('aria-current', admin);
   $('#nav-best').toggleAttribute('aria-current', best);
   $('#nav-home').toggleAttribute('aria-current', !admin && !best);
->>>>>>> origin/main
 }
 
 onUser(async (user) => {
