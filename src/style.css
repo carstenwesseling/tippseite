@@ -163,3 +163,11 @@ main > h2 { margin-inline: max(16px, env(safe-area-inset-left, 0px)); font: 700 
 textarea { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; max-width: 100%; }
 input[type="file"] { max-width: 100%; }
 .scroll .mat th:first-child, .scroll .mat td:first-child { text-align: right; }
+
+/* Halbserien-Auswahl (Admin): kompakte Zeilen, Liga 2 grau hinterlegt */
+.rlist { margin-bottom: 8px; }
+.ritem { display: flex; align-items: flex-start; gap: 8px; padding: 4px 8px; font-size: 12.5px; line-height: 1.35; border-bottom: 1px solid var(--line); }
+.ritem input { margin: 2px 0 0; flex: none; }
+.rnote { display: block; color: #8a5a00; }
+.liga2 { background: color-mix(in srgb, var(--muted) 16%, var(--surface)); }
+.row.liga2 { padding: 4px 8px; border-radius: 4px; }

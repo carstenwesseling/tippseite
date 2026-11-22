@@ -34,6 +34,62 @@ describe('Chronik', () => {
   it('erkennt normale Tippdateien nicht als Chronik', () => {
     expect(parseChronik(wbOf([['a', 'b'], ['c', 'd']], 'Müller,A.'))).toBeNull();
   });
+  describe('fehlerhafte Blätter', () => {
+    const head = [null, null, ...Array.from({ length: 17 }, (_, i) => i + 1), 'Gesamt'];
+    const row = (n, v = 5) => [null, n, ...Array(17).fill(v), 17 * v];
+    const wbMulti = (sheets) => {
+      const wb = XLSX.utils.book_new();
+      for (const [name, rows] of Object.entries(sheets)) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+      return new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+    };
+
+    it('Kopfzeile erst in Zeile 3: meldet, schlägt Korrektur vor und liest sie nach Bestätigung', () => {
+      const d = wbMulti({ 'Hinrunde 2000-2001': [[null, 'Rest,X.', ...Array(17).fill(1)], [], head, row('A,A.'), row('B,B.')] });
+      const r = parseChronik(d);
+      expect(r.rounds).toHaveLength(0);
+      expect(r.issues).toHaveLength(1);
+      expect(r.issues[0]).toMatchObject({ sheet: 'Hinrunde 2000-2001', fix: 'headerrow', applied: false });
+      expect(r.issues[0].problem).toContain('Zeile 3');
+      expect(r.issues[0].suggestion).toContain('2 von 2');
+      const fixed = parseChronik(d, { fixes: { 'Hinrunde 2000-2001': 'headerrow' } });
+      expect(fixed.rounds[0].players.map((p) => p.name)).toEqual(['A,A.', 'B,B.']); // „Rest,X.“ gehört nicht dazu
+      expect(fixed.rounds[0].spieltage).toHaveLength(17);
+      expect(fixed.issues[0].applied).toBe(true);
+    });
+    it('fehlende Kopfzeile: Spieltage nach Spaltenposition', () => {
+      const d = wbMulti({ 'Rückrunde 2001-2002': [row('A,A.'), row('B,B.', 4)] });
+      expect(parseChronik(d).issues[0]).toMatchObject({ fix: 'positional', applied: false });
+      const r = parseChronik(d, { fixes: { 'Rückrunde 2001-2002': 'positional' } });
+      expect(r.rounds[0].players).toHaveLength(2);
+      expect(r.rounds[0].spieltage).toHaveLength(17);
+    });
+    it('Kopfzeile bricht bei Spieltag 6 ab: zu wenige Spieltage werden gemeldet', () => {
+      const h = [null, null, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+      const d = wbMulti({ 'Hinrunde 2005-2006': [h, row('A,A.'), row('B,B.')] });
+      const r = parseChronik(d);
+      expect(r.rounds).toHaveLength(0);
+      expect(r.issues[0].problem).toContain('nur 5 Spieltage');
+      expect(parseChronik(d, { fixes: { 'Hinrunde 2005-2006': 'positional' } }).rounds[0].spieltage).toHaveLength(17);
+    });
+    it('nur Gesamtpunkte: Hinweis, Import nur auf Wunsch als Sammel-Spieltag', () => {
+      const d = wbMulti({ 'Hinrunde 1998-1999': [[null, null, 'Gesamt'], ['1.', 'A,A.', 83], [null, 'B,B.', 70]] });
+      const r = parseChronik(d);
+      expect(r.issues[0]).toMatchObject({ kind: 'totals', fix: 'totals', recommended: false, applied: false });
+      const t = parseChronik(d, { fixes: { 'Hinrunde 1998-1999': 'totals' } }).rounds[0];
+      expect(t.spieltage).toEqual([1]);
+      expect(buildTable(t.players, [], t.spieltage)[0].total).toBe(83);
+    });
+    it('Spieler unter einer Leerzeile: Hinweis und Korrektur', () => {
+      const d = wbMulti({ 'Hinrunde 2010-2011 L1': [head, row('A,A.'), [], row('B,B.')] });
+      const r = parseChronik(d);
+      expect(r.rounds[0].players).toHaveLength(1);
+      expect(r.issues[0]).toMatchObject({ kind: 'blank', fix: 'skipblank' });
+      expect(parseChronik(d, { fixes: { 'Hinrunde 2010-2011 L1': 'skipblank' } }).rounds[0].players).toHaveLength(2);
+    });
+    it('korrekte Blätter erzeugen keine Hinweise', () => {
+      expect(parseChronik(wbMulti({ 'Hinrunde 2010-2011 L1': [head, row('A,A.')] })).issues).toEqual([]);
+    });
+  });
   it('benennt um und meldet Kollisionen', () => {
     const rounds = [{ sheet: 'x', players: [{ name: 'A', perDay: {} }, { name: 'B', perDay: {} }] }];
     const w = [];
