@@ -1,6 +1,7 @@
 // Import einer "Chronik"-Datei: ein Blatt je abgeschlossener Halbserie, je Mitspieler eine Zeile mit
 // den Punkten pro Spieltag. Nur die Spalten A–S werden gelesen (Platz, Name, Spieltage 1–17);
-// alles rechts davon (Gesamt, 2er, Formeln) wird ignoriert, die Summe rechnen wir selbst.
+// Gesamt und Formeln rechts davon werden ignoriert, die Summe rechnen wir selbst. Die Spalten "2er" und "1er"
+// (Anzahl exakter Ergebnisse bzw. richtiger Tendenzen) werden über ihre Kopfzeile gefunden und übernommen.
 import * as XLSX from 'xlsx';
 import { canonName } from './halbserie.js';
 
@@ -40,6 +41,20 @@ const filled = (v) => num(v) !== null || (typeof v === 'string' && v.trim() === 
 const dataCount = (ws, r) => { let n = 0; for (let c = FIRST_DAY_COL; c <= LAST_COL; c++) if (num(cell(ws, r, c)) !== null) n++; return n; };
 
 const MAX_HEADER_ROW = 15;
+const MAX_STAT_COL = 40;
+
+/** Spalten mit den Überschriften "2er" / "1er" rechts der Spieltage (in der Kopfzeile oder darüber); fehlt eine, ist sie null. */
+function statColumns(ws, headerRow) {
+  const found = { zwei: null, eins: null };
+  for (let r = Math.max(0, headerRow); r >= 0 && r >= headerRow - 2; r--) {
+    for (let c = LAST_COL + 1; c <= MAX_STAT_COL; c++) {
+      const v = String(cell(ws, r, c) ?? '').trim().toLowerCase();
+      if (v === '2er' && found.zwei === null) found.zwei = c;
+      if (v === '1er' && found.eins === null) found.eins = c;
+    }
+  }
+  return found;
+}
 
 /** Beschreibt, wie ein Blatt aufgebaut ist – unabhängig davon, ob die Kopfzeile in Zeile 1 steht. */
 function inspectSheet(ws) {
@@ -169,6 +184,7 @@ export function parseChronik(data, { fixes = {} } = {}) {
     }
 
     const totalsOnly = applied.includes('totals');
+    const stat = statColumns(ws, info.headerRow);
     const players = [];
     const seen = new Set();
     const lastRow = applied.includes('skipblank') ? 399 : (info.rows.length ? info.rows[info.rows.length - 1] : start);
@@ -181,7 +197,9 @@ export function parseChronik(data, { fixes = {} } = {}) {
       if (totalsOnly) players.push({ name, perDay, total: num(cell(ws, r, FIRST_DAY_COL)) ?? 0 });
       else {
         cols.forEach((c, i) => { const v = num(cell(ws, r, c)); if (v !== null) perDay[i + 1] = v; });
-        players.push({ name, perDay });
+        const zwei = stat.zwei === null ? null : num(cell(ws, r, stat.zwei));
+        const eins = stat.eins === null ? null : num(cell(ws, r, stat.eins));
+        players.push({ name, perDay, ...(zwei !== null ? { zwei } : {}), ...(eins !== null ? { eins } : {}) });
       }
     }
     if (!players.length) { ignored.push(sheet); continue; }

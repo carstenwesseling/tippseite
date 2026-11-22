@@ -34,7 +34,7 @@ export function buildTable(players, results, spieltage) {
     if (p.perDay) { // Chronik: Punkte je Spieltag liegen schon vor, keine Einzeltipps
       const pd = Object.fromEntries(spieltage.map((d) => [d, p.perDay[d] ?? 0]));
       Object.keys(p.perDay).forEach((d) => chronikDays.add(Number(d)));
-      return { name: p.name, perDay: pd, total: Object.values(pd).reduce((a, b) => a + b, 0), zwei: null, eins: null };
+      return { name: p.name, perDay: pd, total: Object.values(pd).reduce((a, b) => a + b, 0), zwei: p.zwei ?? null, eins: p.eins ?? null };
     }
     const perDay = Object.fromEntries(spieltage.map((d) => [d, 0]));
     let zwei = 0;

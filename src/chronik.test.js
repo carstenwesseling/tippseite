@@ -31,6 +31,16 @@ describe('Chronik', () => {
     expect(t[1].total).toBe(60);
     expect(rd.players[1].perDay[1]).toBeUndefined(); // "-" = nicht gewertet
   });
+  it('übernimmt die Spalten 2er und 1er über ihre Überschrift', () => {
+    const head = [null, null, ...Array.from({ length: 17 }, (_, i) => i + 1), 'Gesamt', null, '2er', '1er'];
+    const rows = [head, ['1.', 'A,A.', ...Array(17).fill(2), 34, null, 12, 10], [null, 'B,B.', ...Array(17).fill(1), 17, null, 0, 17], [null, 'C,C.', ...Array(17).fill(1), 17]];
+    const rd = parseChronik(wbOf(rows)).rounds[0];
+    const t = buildTable(rd.players, [], rd.spieltage);
+    const a = t.find((x) => x.name === 'A,A.');
+    expect([a.zwei, a.eins]).toEqual([12, 10]);
+    expect(t.find((x) => x.name === 'B,B.').zwei).toBe(0); // 0 ist ein Wert, kein "fehlt"
+    expect(t.find((x) => x.name === 'C,C.').zwei).toBeNull();
+  });
   it('erkennt normale Tippdateien nicht als Chronik', () => {
     expect(parseChronik(wbOf([['a', 'b'], ['c', 'd']], 'Müller,A.'))).toBeNull();
   });

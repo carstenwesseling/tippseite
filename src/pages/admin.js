@@ -116,7 +116,7 @@ export async function renderAdmin(app, session, flash = '') {
 
     preview.innerHTML = `
       <div class="msg ok">Chronik-Datei „${esc(filename)}“ erkannt: ${chronik.rounds.length} Halbserien, ${importNames.length} verschiedene Namen.
-        Gelesen werden nur die Spalten A–S (Platz, Name, Spieltage 1–17); Gesamt und alles rechts davon wird ignoriert.</div>
+        Gelesen werden nur die Spalten A–S (Platz, Name, Spieltage 1–17); zusätzlich werden die Spalten „2er“ und „1er“ (erkannt an der Überschrift) übernommen, Gesamt und der Rest rechts davon wird ignoriert.</div>
       ${chronik.issues.length ? `<h4>Fehlerhafte Arbeitsblätter (${chronik.issues.length})</h4>
         <div class="muted">Diese Blätter weichen vom erwarteten Aufbau ab. Mit Haken wird der Korrekturvorschlag beim Import angewendet,
           ohne Haken wird das Blatt übersprungen. Die Excel-Datei selbst bleibt unverändert.</div>
