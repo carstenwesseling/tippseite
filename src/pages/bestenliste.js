@@ -52,8 +52,8 @@ export async function renderBestenliste(app, session) {
     sorted.forEach((r, i) => { r.rank = i > 0 && num[key](sorted[i - 1]) === num[key](r) ? sorted[i - 1].rank : i + 1; });
     return sorted;
   };
-  const sort = { key: 'schnitt', dir: 1 }; // Beim Aufruf nach Schnitt sortiert und nummeriert
-  let rankKey = 'schnitt';
+  const sort = { key: 'total', dir: 1 }; // Beim Aufruf nach Punkten sortiert und nummeriert
+  let rankKey = 'total';
 
   const body = () => {
     const best = rank(rankKey);
