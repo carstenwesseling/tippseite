@@ -284,3 +284,32 @@ button.primary:disabled, button:disabled { opacity: .45; cursor: not-allowed; }
 .tfform { display: grid; gap: 10px; max-width: 420px; margin-bottom: 12px; }
 .tfform label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
 .tfform input { height: 42px; font-size: 16px; width: 100%; }
+
+/* Umfrage zur Tippfete */
+.pcard { max-width: 560px; }
+.pcard h3 { margin: 0 0 10px; }
+.pform { display: grid; gap: 10px; margin-bottom: 14px; }
+.pform label { font-size: 13px; color: var(--muted); }
+.pform select { height: 46px; font-size: 16px; width: 100%; }
+.pseg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.pseg button { height: 52px; border: 0; border-radius: 0; background: var(--surface); color: var(--ink); font: 700 17px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
+.pseg button + button { border-left: 1px solid var(--line); }
+.pseg button[aria-pressed="true"].k { background: var(--pitch); color: var(--pitch-ink); }
+.pseg button[aria-pressed="true"].n { background: #8a2f2a; color: #fff; }
+#pgo { height: 50px; font: 700 17px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; }
+#pgo:disabled { opacity: .4; cursor: not-allowed; }
+.pnote { margin: 0; font-size: 12px; }
+.pcnt { display: flex; gap: 22px; flex-wrap: wrap; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+.pcnt div { display: flex; align-items: baseline; gap: 6px; }
+.pcnt b { font: 700 36px/1 var(--display); }
+.pcnt span { color: var(--muted); font-size: 14px; }
+.pcnt .k b { color: var(--pitch); } .pcnt .n b { color: #8a2f2a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pcnt .n b { color: #f09a93; } }
+:root[data-theme="dark"] .pcnt .n b { color: #f09a93; }
+.pbar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--line); }
+.pbar i { display: block; background: var(--pitch); } .pbar i + i { background: #8a2f2a; }
+.tflists { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 12px; }
+.tflists h4 { font: 700 16px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--pitch); }
+.tflists .nn h4 { border-color: #8a2f2a; }
+.tflists ul { list-style: none; margin: 0; padding: 0; }
+.tflists li { padding: 6px 0; border-bottom: 1px solid var(--line); }

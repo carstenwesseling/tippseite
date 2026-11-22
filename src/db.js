@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where,
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase.js';
 import { fetchSeason } from './openliga.js';
@@ -320,4 +320,60 @@ export async function getTippfete() {
 export async function saveTippfete({ datum, uhrzeit, ort }) {
   if (!datum && !uhrzeit && !ort) { await deleteDoc(TIPPFETE()); return; }
   await setDoc(TIPPFETE(), { datum: datum ?? '', uhrzeit: uhrzeit ?? '', ort: (ort ?? '').trim(), updatedAt: Date.now() });
+  if (!(await getDoc(COUNTS())).exists()) await setDoc(COUNTS(), { k: 0, n: 0, last: '' }); // Zähler der Umfrage anlegen
+}
+
+// ---- Umfrage zur Tippfete ----
+// settings/tippfeteCounts: { k, n, last } öffentlich lesbar (nur Anzahlen); tippfeteVotes/{id}: { name, antwort: 'k'|'n', at }
+// nur für Admins listbar (Namen). Jede Stimme wird nur einmal angelegt und nicht mehr geändert.
+const COUNTS = () => doc(db, 'settings', 'tippfeteCounts');
+const VOTES = 'tippfeteVotes';
+export const voteId = (name) => encodeURIComponent(normName(name));
+
+export async function getTippfeteCounts() {
+  const s = await getDoc(COUNTS());
+  return s.exists() ? { k: s.data().k ?? 0, n: s.data().n ?? 0 } : { k: 0, n: 0 };
+}
+
+/** Hat dieses Mitglied schon abgestimmt? (Es wird nur das Vorhandensein geprüft, nicht die Antwort angezeigt.) */
+export async function hasVoted(name) {
+  return (await getDoc(doc(db, VOTES, voteId(name)))).exists();
+}
+
+/** Eine Stimme abgeben ('k' = kommt, 'n' = kommt nicht): Stimme und Zähler in einer Transaktion, nur einmal je Mitglied. */
+export async function voteTippfete(name, antwort) {
+  if (!['k', 'n'].includes(antwort)) throw new Error('Ungültige Antwort');
+  const id = voteId(name);
+  const vref = doc(db, VOTES, id);
+  await runTransaction(db, async (tx) => {
+    if ((await tx.get(vref)).exists()) throw new Error('Du hast schon abgestimmt.');
+    const c = (await tx.get(COUNTS())).data() ?? { k: 0, n: 0 };
+    tx.set(vref, { name, antwort, at: Date.now() });
+    tx.update(COUNTS(), { k: (c.k ?? 0) + (antwort === 'k' ? 1 : 0), n: (c.n ?? 0) + (antwort === 'n' ? 1 : 0), last: id });
+  });
+}
+
+/** Nur Admins: alle Stimmen mit Namen. */
+export async function listVotes() {
+  const snap = await getDocs(collection(db, VOTES));
+  return snap.docs.map((d) => d.data());
+}
+
+/** Nur Admins: Umfrage zurücksetzen (z. B. für die nächste Tippfete). */
+export async function resetVotes() {
+  const snap = await getDocs(collection(db, VOTES));
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const batch = writeBatch(db);
+    snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  await setDoc(COUNTS(), { k: 0, n: 0, last: '' });
+}
+
+/** Mitglieder der aktuellen (neuesten) Halbserie: Namen, die abstimmen dürfen. */
+export async function currentMembers() {
+  const rounds = (await listRounds()).sort(compareRounds);
+  if (!rounds.length) return [];
+  const r = await getRound(rounds[0].id);
+  return [...new Set((r?.players ?? []).map((p) => p.name))].sort((a, b) => a.localeCompare(b, 'de'));
 }
