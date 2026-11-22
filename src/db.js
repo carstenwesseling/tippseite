@@ -46,7 +46,7 @@ async function writePlayers(roundId, players) {
   for (let i = 0; i < players.length; i += 400) {
     const batch = writeBatch(db);
     for (const p of players.slice(i, i + 400)) {
-      batch.set(doc(db, 'rounds', roundId, 'players', encodeURIComponent(p.name)), { name: p.name, tips: p.tips ?? {}, ...(p.perDay ? { perDay: p.perDay } : {}), ...(typeof p.total === 'number' ? { total: p.total } : {}) });
+      batch.set(doc(db, 'rounds', roundId, 'players', encodeURIComponent(p.name)), { name: p.name, tips: p.tips ?? {}, ...(p.perDay ? { perDay: p.perDay } : {}), ...(typeof p.zwei === 'number' ? { zwei: p.zwei } : {}), ...(typeof p.eins === 'number' ? { eins: p.eins } : {}), ...(typeof p.total === 'number' ? { total: p.total } : {}) });
     }
     await batch.commit();
   }
