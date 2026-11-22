@@ -176,7 +176,8 @@ button.primary:disabled, button:disabled { opacity: .45; cursor: not-allowed; }
 .tp button.big:not(.ghost) { background: var(--card); color: var(--card-ink); border-color: var(--card); font-weight: 600; }
 .tp .ghost { background: transparent; color: #fff; border-color: #ffffff66; }
 .mailbox { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--g-line); border-radius: 6px; background: var(--g-row); }
-.mailbox[hidden] { display: none; }
+.mailform { display: grid; gap: 8px; }
+.mailform[hidden] { display: none; }
 .mailbox input[type=email] { height: 42px; font-size: 16px; background: #fff; color: #101a14; border-color: transparent; }
 .chk { display: flex; align-items: center; gap: 10px; font-weight: 500; cursor: pointer; }
 .chk input { width: 20px; height: 20px; margin: 0; padding: 0; accent-color: var(--pitch); flex: none; }

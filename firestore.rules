@@ -36,9 +36,16 @@ service cloud.firestore {
       match /tips/{m} {
         allow get: if true;
         allow list, delete: if isAdmin();
-        allow create, update: if get(/databases/$(database)/documents/tipping/$(id)).data.open == true
+        // Neu anlegen: Runde offen, Mitglied hat Haken. Überschreiben nur, solange der Tipp nicht abgeschickt (locked) ist;
+        // danach schaltet ein Admin ihn in der Mitgliederverwaltung frei.
+        allow create: if get(/databases/$(database)/documents/tipping/$(id)).data.open == true
           && get(/databases/$(database)/documents/members/$(m)).data.aktiv == true
-          && request.resource.data.keys().hasOnly(['name', 'tips', 'updatedAt']);
+          && request.resource.data.keys().hasOnly(['name', 'tips', 'updatedAt', 'locked']);
+        allow update: if resource.data.get('locked', false) != true
+          && get(/databases/$(database)/documents/tipping/$(id)).data.open == true
+          && get(/databases/$(database)/documents/members/$(m)).data.aktiv == true
+          && request.resource.data.keys().hasOnly(['name', 'tips', 'updatedAt', 'locked']);
+        allow update: if isAdmin();
       }
     }
 
