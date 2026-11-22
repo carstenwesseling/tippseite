@@ -10,6 +10,17 @@ Punkte: exaktes Ergebnis 2, richtige Tendenz 1.
 4. In Firestore Dokument `admins/<deine-google-mail-kleingeschrieben>` anlegen (beliebiger Inhalt).
 5. `npm install && npm run dev`.
 
+## Tipprunde, Mitglieder und Excel-Tippschein
+1. **Verwaltung → Tippen → Tipprunde eröffnen**: holt die 153 Paarungen der Halbserie von OpenLigaDB und schaltet `#/tippen` frei.
+2. **Verwaltung → Tippen → Tipper**: Haken = tippt mit (vorbelegt mit den Spielern der letzten Halbserie), neue Mitglieder anlegen, je Mitglied „Excel per Mail“ mit Adresse. Adressen liegen in `memberMail` und sind nur für Admins lesbar.
+3. Mitglieder wählen im Tippformular ihren Namen und tippen (Entwurf bleibt im Browser, „Abschicken“ speichert in Firestore). Wer „Excel per Mail“ hat, bekommt den Tippschein (eine DIN-A4-Seite, Hochformat, Name oben) als Anhang; zum Herunterladen gibt es den Schein für jeden.
+4. **Als Halbserie speichern** beendet die Tipprunde und macht die Tipps zur normalen Halbserie mit Tabelle.
+
+Mailversand: Firebase-Erweiterung „Trigger Email from Firestore“ installieren (Sammlung `mail`, SMTP-Zugang, Blaze-Tarif nötig). Die Regeln lassen nur Mails an die im Admin hinterlegte Adresse eines Mitglieds mit „Excel per Mail“ zu. Ohne die Erweiterung klappt alles außer dem Mailversand (der Download bleibt).
+Das Excel-Layout entspricht dem Parser (`src/tipsheet.js`): je Spieltag ein Block, Blattname = Spielername, die Datei lässt sich wieder hochladen.
+
+Die Tipper (`tippers`, `tipperMail`) sind getrennt von den Mitgliedern der Mitgliederverwaltung (`members`); neue Tipper werden dort automatisch ergänzt.
+
 ## Excel-Format
 Je Mitspieler ein Blatt (Name = Blattname). Blöcke mit Kopfzelle `Tipp`; darunter je Spiel `Heim | - | Gast | Tipp H | : | Tipp G`.
 Blätter `Namen`, `Ergebnisse`, `aktueller Stand`, `bezahlt…`, `… L2` werden übersprungen. Das Blatt `Ergebnisse` dient als Fallback, falls OpenLigaDB nichts liefert.

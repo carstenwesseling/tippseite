@@ -24,6 +24,7 @@ export function adminGate(app, session) {
 export const adminNav = (active) => `<h1>Verwaltung</h1>
   <nav class="tabs"><a href="#/admin" class="${active === 'upload' ? 'active' : ''}">Halbserien &amp; Upload</a>
   <a href="#/admin/mitglieder" class="${active === 'members' ? 'active' : ''}">Mitglieder</a>
+  <a href="#/admin/tippen" class="${active === 'tippen' ? 'active' : ''}">Tippen</a>
   <button class="linkbtn" data-logout>Abmelden</button></nav>`;
 
 export async function renderAdmin(app, session, flash = '') {

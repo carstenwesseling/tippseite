@@ -19,6 +19,21 @@ const app = configured
 export const db = app ? getFirestore(app) : null;
 export const auth = app ? getAuth(app) : null;
 
-export const login = () => signInWithPopup(auth, new GoogleAuthProvider());
+// Nur ein Anmelde-Popup gleichzeitig: Doppelklicks lösen sonst auth/cancelled-popup-request aus.
+let pending = null;
+const QUIET = ['auth/cancelled-popup-request', 'auth/popup-closed-by-user'];
+export function login() {
+  if (pending) return pending;
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  pending = signInWithPopup(auth, provider)
+    .catch((e) => {
+      if (QUIET.includes(e.code)) return; // Popup abgebrochen oder durch zweiten Klick ersetzt: kein Fehler für den Nutzer
+      if (e.code === 'auth/popup-blocked') throw new Error('Das Anmelde-Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben und erneut versuchen.');
+      throw e;
+    })
+    .finally(() => { pending = null; });
+  return pending;
+}
 export const logout = () => signOut(auth);
 export const onUser = (cb) => (auth ? onAuthStateChanged(auth, cb) : (cb(null), () => {}));
