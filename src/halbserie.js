@@ -102,7 +102,7 @@ export const canonName = (n) => String(n ?? '').normalize('NFC').replace(/\s*,\s
 export const normName = (n) => String(n ?? '').normalize('NFC').toLowerCase().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ').trim();
 
 // Platzhalter-Einträge (xxx-1 bis xxx-7, xx1 bis xx7), die in keiner Tabelle erscheinen sollen.
-export const isPlaceholder = (n) => /^(xxx-[1-7]|xx[1-7])$/.test(normName(n));
+export const isPlaceholder = (n) => /^xx{1,2}-?[1-7]$/.test(normName(n));
 
 // Dieselbe Person unter mehreren Schreibweisen/Namen: normalisierter Name -> gültiger Name.
 const SAME_PERSON = { 'kuchinke,st.': 'Reimann,St.', 'laskwoski,w.': 'Laskowski,W.', 'he-man': 'Homann,M.' };
