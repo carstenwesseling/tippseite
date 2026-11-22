@@ -104,3 +104,13 @@ describe('samePerson', () => {
     expect(_canon('Müller,R.')).toBe('Müller,R.');
   });
 });
+
+import { isPlaceholder } from './halbserie.js';
+describe('isPlaceholder', () => {
+  it('erkennt xxx-1 bis xxx-7', () => {
+    for (let i = 1; i <= 7; i++) expect(isPlaceholder(`xxx-${i}`)).toBe(true);
+    expect(isPlaceholder('XXX-3')).toBe(true);
+    expect(isPlaceholder('xxx-8')).toBe(false);
+    expect(isPlaceholder('Reimann,St.')).toBe(false);
+  });
+});

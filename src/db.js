@@ -3,7 +3,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase.js';
 import { fetchSeason } from './openliga.js';
-import { roundCode, compareRounds, normName, samePerson } from './halbserie.js';
+import { roundCode, compareRounds, normName, samePerson, isPlaceholder } from './halbserie.js';
 
 const STALE_MS = 15 * 60 * 1000;
 
@@ -27,7 +27,7 @@ export async function getRound(id) {
   const r = await getDoc(doc(db, 'rounds', id));
   if (!r.exists()) return null;
   const ps = await getDocs(collection(db, 'rounds', id, 'players'));
-  return { id, ...r.data(), players: ps.docs.map((d) => d.data()).map((p) => ({ ...p, name: samePerson(p.name) })) };
+  return { id, ...r.data(), players: ps.docs.map((d) => d.data()).filter((p) => !isPlaceholder(p.name)).map((p) => ({ ...p, name: samePerson(p.name) })) };
 }
 
 /** Speichert eine Halbserie samt Spielern (Batches à max. 400 Schreibvorgänge). */
