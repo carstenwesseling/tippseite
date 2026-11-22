@@ -28,6 +28,12 @@ export function parseSheetMatches(ws, rename = {}) {
     if (addr[0] === '!') continue;
     if (asText(ws[addr].v) === 'Tipp') anchors.push(XLSX.utils.decode_cell(addr));
   }
+  // Die Überschrift "Tipp" steht nicht immer genau über dem ":" (bei manchen Blättern um eine Spalte verschoben).
+  // Maßgeblich ist daher die Spalte des ":" in der ersten Spielzeile (c, c-1 oder c+1).
+  for (const a of anchors) {
+    const colon = [a.c, a.c - 1, a.c + 1].find((c) => asText(cellValue(ws, a.r + 1, c)) === ':');
+    if (colon !== undefined) a.c = colon;
+  }
   anchors.sort((a, b) => a.c - b.c || a.r - b.r);
 
   const matches = [];

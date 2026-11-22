@@ -35,3 +35,26 @@ describe.skipIf(!existsSync(FILE))('Beispieldatei Rückrunde 25/26', () => {
     expect(checked).toBeGreaterThan(40);
   });
 });
+
+describe('Blattaufbau', () => {
+  const sheet = (tippCol) => {
+    const rows = [[], [], []];
+    rows[0][tippCol] = 'Tipp';
+    rows[1] = ['Bayern', '-', 'Stuttgart', 3, ':', 1];
+    rows[2] = ['Dortmund', '-', 'Hamburg', 2, ':', 0];
+    return rows;
+  };
+  const wbOf = (rows, name = 'Müller,A.') => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+    return new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+  };
+  it('liest Tipps, auch wenn "Tipp" um eine Spalte verschoben über dem Block steht', () => {
+    for (const col of [4, 3, 5]) {
+      const r = parseWorkbook(wbOf(sheet(col)));
+      expect(r.order, `Spalte ${col}`).toHaveLength(2);
+      expect(r.players[0].tipCount).toBe(2);
+      expect(r.players[0].tips['bayern|stuttgart']).toEqual({ h: 3, g: 1 });
+    }
+  });
+});

@@ -102,6 +102,9 @@ describe('Chronik', () => {
       expect(parseChronik(wbMulti({ 'Hinrunde 2010-2011 L1': [head, row('A,A.')] })).issues).toEqual([]);
     });
   });
+  it('Tippdatei mit Blättern je Mitspieler (auch mit Zahlen 1, 2, 3 in einer Zeile) ist keine Chronik', () => {
+    expect(parseChronik(wbOf([[null, null, 1, 2, 3], ['1.', 'A,A.', 5, 5, 5]], 'Müller,A.'))).toBeNull();
+  });
   it('benennt um und meldet Kollisionen', () => {
     const rounds = [{ sheet: 'x', players: [{ name: 'A', perDay: {} }, { name: 'B', perDay: {} }] }];
     const w = [];

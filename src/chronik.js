@@ -106,8 +106,10 @@ export function parseChronik(data, { fixes = {} } = {}) {
   const ignored = [];
   const warnings = [];
   const issues = [];
+  let anyHalbserie = false; // mindestens ein Blattname wie "Hinrunde 2010-2011"
   for (const sheet of wb.SheetNames) {
     const meta = parseChronikSheetName(sheet);
+    if (meta) anyHalbserie = true;
     const ws = wb.Sheets[sheet];
     const info = inspectSheet(ws);
     const want = new Set([].concat(fixes[sheet] ?? []));
@@ -187,7 +189,8 @@ export function parseChronik(data, { fixes = {} } = {}) {
     if (twin) warnings.push(`Blätter „${twin.sheet}“ und „${sheet}“ bezeichnen dieselbe Halbserie und Liga – vermutlich ist die Liga im Blattnamen falsch (z. B. L1 statt L2).`);
     rounds.push({ sheet, ...meta, spieltage: cols.map((_, i) => i + 1), players, fixes: applied, ...(totalsOnly ? { totalsOnly: true } : {}) });
   }
-  return rounds.length || issues.length ? { rounds, ignored, warnings, issues } : null;
+  // Ohne Blattnamen im Chronik-Schema ist es keine Chronik (z. B. normale Tippdatei mit Blättern je Mitspieler).
+  return anyHalbserie && (rounds.length || issues.length) ? { rounds, ignored, warnings, issues } : null;
 }
 
 /** Wendet eine Namenszuordnung (alt -> neu) an. Kollidieren zwei Namen im selben Blatt, bleibt der erste. */

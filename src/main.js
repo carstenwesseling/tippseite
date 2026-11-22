@@ -2,7 +2,7 @@ import { configured, login, logout, onUser } from './firebase.js';
 import { checkAdmin } from './db.js';
 import { esc, $, enableSort } from './util.js';
 import { renderHome } from './pages/home.js';
-import { renderTable } from './pages/table.js';
+import { renderTable, stopPolling } from './pages/table.js';
 import { renderBestenliste } from './pages/bestenliste.js';
 import { renderAdmin } from './pages/admin.js';
 import { renderMembers, renderMember } from './pages/members.js';
@@ -12,6 +12,7 @@ export const session = { user: null, isAdmin: false };
 const app = $('#app');
 
 async function route() {
+  stopPolling();
   markNav();
   const [, page, id, id2] = location.hash.split('/');
   if (!configured) {
