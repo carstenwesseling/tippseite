@@ -325,7 +325,7 @@ export async function saveTippfete({ datum, uhrzeit, ort }) {
 
 // ---- Umfrage zur Tippfete ----
 // settings/tippfeteCounts: { k, n, last } öffentlich lesbar (nur Anzahlen); tippfeteVotes/{id}: { name, antwort: 'k'|'n', at }
-// nur für Admins listbar (Namen). Jede Stimme wird nur einmal angelegt und nicht mehr geändert.
+// nur für Admins listbar (Namen). Eine Stimme kann geändert werden (Komme <-> Komme nicht); der Zähler wird passend angepasst.
 const COUNTS = () => doc(db, 'settings', 'tippfeteCounts');
 const VOTES = 'tippfeteVotes';
 export const voteId = (name) => encodeURIComponent(normName(name));
@@ -335,21 +335,26 @@ export async function getTippfeteCounts() {
   return s.exists() ? { k: s.data().k ?? 0, n: s.data().n ?? 0 } : { k: 0, n: 0 };
 }
 
-/** Hat dieses Mitglied schon abgestimmt? (Es wird nur das Vorhandensein geprüft, nicht die Antwort angezeigt.) */
-export async function hasVoted(name) {
-  return (await getDoc(doc(db, VOTES, voteId(name)))).exists();
+/** Bisherige Antwort dieses Mitglieds ('k' | 'n') oder null, wenn noch nicht abgestimmt. */
+export async function getVote(name) {
+  const s = await getDoc(doc(db, VOTES, voteId(name)));
+  return s.exists() ? s.data().antwort : null;
 }
 
-/** Eine Stimme abgeben ('k' = kommt, 'n' = kommt nicht): Stimme und Zähler in einer Transaktion, nur einmal je Mitglied. */
+/** Stimme abgeben oder ändern ('k' = kommt, 'n' = kommt nicht): Stimme und Zähler in einer Transaktion. */
 export async function voteTippfete(name, antwort) {
   if (!['k', 'n'].includes(antwort)) throw new Error('Ungültige Antwort');
   const id = voteId(name);
   const vref = doc(db, VOTES, id);
   await runTransaction(db, async (tx) => {
-    if ((await tx.get(vref)).exists()) throw new Error('Du hast schon abgestimmt.');
+    const old = await tx.get(vref);
+    const prev = old.exists() ? old.data().antwort : null;
+    if (prev === antwort) return; // unverändert
     const c = (await tx.get(COUNTS())).data() ?? { k: 0, n: 0 };
-    tx.set(vref, { name, antwort, at: Date.now() });
-    tx.update(COUNTS(), { k: (c.k ?? 0) + (antwort === 'k' ? 1 : 0), n: (c.n ?? 0) + (antwort === 'n' ? 1 : 0), last: id });
+    const d = (a) => (antwort === a ? 1 : 0) - (prev === a ? 1 : 0);
+    if (prev) tx.update(vref, { antwort, at: Date.now() });
+    else tx.set(vref, { name, antwort, at: Date.now() });
+    tx.update(COUNTS(), { k: (c.k ?? 0) + d('k'), n: (c.n ?? 0) + d('n'), last: id });
   });
 }
 
