@@ -1,5 +1,6 @@
 import { getTippfete, getTippfeteCounts, currentMembers, getVote, voteTippfete } from '../db.js';
 import { $ } from '../util.js';
+import { db } from '../firebase.js';
 import { esc } from '../util.js';
 
 /** "2027-01-16" -> Date (lokal, Mitternacht) */
@@ -7,7 +8,13 @@ const parseDay = (d) => { const [y, m, t] = d.split('-').map(Number); return new
 
 /** Seite "Nächste Tippfete": Datum, Uhrzeit und Ort als Eintrittskarte. */
 export async function renderTippfete(app) {
-  const t = await getTippfete();
+  let t;
+  try { t = await getTippfete(); }
+  catch (e) {
+    console.error('Tippfete: Termin lesen (settings/tippfete)', e);
+    app.innerHTML = `<h1>Nächste Tippfete</h1><div class="msg err">Der Termin (Firestore-Dokument <code>settings/tippfete</code>) konnte nicht gelesen werden: ${esc(e.message)}<br>Fehlercode: <code>${esc(e.code ?? '–')}</code>. Prüfe, dass die Firestore-Regeln im selben Firebase-Projekt eingespielt sind, mit dem diese Seite gebaut wurde (<code>${esc(String(db.app.options.projectId))}</code>), und dass es die Datenbank „(default)“ ist.</div>`;
+    return;
+  }
   if (!t) {
     app.innerHTML = '<h1>Nächste Tippfete</h1><div class="msg">Noch kein Termin. Sobald einer feststeht, steht er hier.</div>';
     return;
