@@ -50,7 +50,7 @@ export async function renderTippen(app, session) {
   if (!members.some((m) => m.id === who)) who = '';
   let tips = {};
   let savedAt = null;
-  let locked = false; // abgeschickt: nicht mehr änderbar, bis die Verwaltung freischaltet
+  let sent = false; // schon einmal abgeschickt: Tipp bleibt änderbar, solange die Runde offen ist
 
   app.innerHTML = `<div class="tp">
     <div class="tp-head gut"><h1>${esc(tipping.title)} tippen</h1></div>
@@ -91,32 +91,30 @@ export async function renderTippen(app, session) {
     });
     app.querySelector('.pnum b').textContent = n;
     app.querySelector('.pbar i').style.width = (n / total * 100) + '%';
-    app.querySelectorAll('.send').forEach((b) => { b.disabled = !who || !tipping.open || locked; });
+    app.querySelectorAll('.send').forEach((b) => { b.disabled = !who || !tipping.open; });
     $('#dl').disabled = !who;
     const m = member();
     $('#mailform').hidden = !m?.sendExcel;
-    $('#mailon').disabled = $('#mailto').disabled = locked;
-    $('#mailnote').textContent = !m ? 'Wähle oben deinen Namen. Wenn die Verwaltung „Excel per Mail“ für dich freigeschaltet hat, kannst du hier deine Adresse eintippen und den Tippschein per Mail bekommen.'
+        $('#mailnote').textContent = !m ? 'Wähle oben deinen Namen. Wenn die Verwaltung „Excel per Mail“ für dich freigeschaltet hat, kannst du hier deine Adresse eintippen und den Tippschein per Mail bekommen.'
       : m.sendExcel ? '' : 'Für dich ist „Excel per Mail“ nicht freigeschaltet. Den Tippschein kannst du herunterladen. Für den Mailversand wende dich an die Verwaltung.';
     if (m?.sendExcel) $('#mailto').value ||= lget(K_MAIL(who)) || '';
   }
 
   async function load() {
-    tips = {}; savedAt = null; locked = false;
+    tips = {}; savedAt = null; sent = false;
     if (who) {
       const draft = lget(K_DRAFT(who));
       const remote = await getTips(who).catch(() => null);
-      if (remote) { tips = Object.fromEntries(Object.entries(remote.tips ?? {}).map(([k, v]) => [k, { h: String(v.h), g: String(v.g) }])); savedAt = remote.updatedAt; locked = remote.locked === true; }
-      if (draft && !locked) { try { tips = { ...tips, ...JSON.parse(draft) }; } catch { /* kaputter Entwurf */ } }
-      if (locked) lset(K_DRAFT(who), null);
+      if (remote) { tips = Object.fromEntries(Object.entries(remote.tips ?? {}).map(([k, v]) => [k, { h: String(v.h), g: String(v.g) }])); savedAt = remote.updatedAt; sent = true; }
+      if (draft) { try { tips = { ...tips, ...JSON.parse(draft) }; } catch { /* kaputter Entwurf */ } }
     }
     const open = tipping.open;
-    inputs.forEach((i) => { i.disabled = !who || !open || locked; i.value = tips[i.dataset.k]?.[i.dataset.s] ?? ''; });
+    inputs.forEach((i) => { i.disabled = !who || !open; i.value = tips[i.dataset.k]?.[i.dataset.s] ?? ''; });
     const when = savedAt ? new Date(savedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '';
-    msg(locked ? `<span class="okline">Dein Tipp ist am ${when} abgeschickt und dauerhaft gespeichert.</span> Er kann nicht mehr geändert werden. Soll er überschrieben werden, schaltet die Verwaltung ihn frei.`
-      : !open ? '<span class="warnline">Die Tipprunde ist geschlossen. Es kann nicht mehr getippt werden.</span>'
+    msg(!open ? (sent ? `<span class="okline">Dein Tipp vom ${when} ist gespeichert.</span> ` : '') + '<span class="warnline">Die Tipprunde ist geschlossen. Es kann nicht mehr getippt werden.</span>'
+      : sent ? `<span class="okline">Dein Tipp ist am ${when} gespeichert.</span> Du siehst hier den aktuellen Stand und kannst ihn ändern. Mit „Abschicken“ wird die Änderung gespeichert.`
       : !who ? 'Wähle oben zuerst deinen Namen, dann kannst du tippen.'
-      : 'Noch nicht abgeschickt. Deine Eingaben bleiben auf diesem Gerät erhalten. Mit „Abschicken“ wird der Tipp dauerhaft gespeichert.');
+      : 'Noch nicht abgeschickt. Deine Eingaben bleiben auf diesem Gerät erhalten. Mit „Abschicken“ wird der Tipp gespeichert.');
     refresh();
   }
 
@@ -153,9 +151,8 @@ export async function renderTippen(app, session) {
 
   async function submit() {
     const m = member(); if (!m) return;
-    if (locked) return;
     const missing = total - done(tips);
-    if (!confirm(`${missing ? `Es fehlen noch ${missing} Tipps. ` : ''}Nach dem Abschicken ist dein Tipp endgültig gespeichert und kann nur noch über die Verwaltung wieder freigeschaltet werden. Jetzt abschicken?`)) return;
+    if (!confirm(`${missing ? `Es fehlen noch ${missing} Tipps. ` : ''}Ein bereits gespeicherter Tipp wird dabei überschrieben. Jetzt abschicken?`)) return;
     const wantMail = m.sendExcel && $('#mailon').checked;
     const to = $('#mailto').value.trim();
     if (wantMail && !/^\S+@\S+\.\S+$/.test(to)) {
@@ -166,9 +163,8 @@ export async function renderTippen(app, session) {
     app.querySelectorAll('.send').forEach((b) => { b.disabled = true; });
     try {
       await saveTips(who, m.name, numericTips());
-      lset(K_DRAFT(who), null); savedAt = Date.now(); locked = true;
-      inputs.forEach((i) => { i.disabled = true; });
-      let text = 'Tipp abgeschickt und dauerhaft gespeichert.';
+      lset(K_DRAFT(who), null); savedAt = Date.now(); sent = true;
+      let text = 'Tipp gespeichert. Du kannst ihn jederzeit ändern, indem du deinen Namen erneut wählst.';
       if (wantMail) {
         lset(K_MAIL(who), to);
         try {
