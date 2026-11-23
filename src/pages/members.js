@@ -1,154 +1,122 @@
-// Verwaltung: Mitglieder (Haken "tippt mit", Excel per Mail, neue Mitglieder) und Tipprunde (kommende Halbserie).
 import {
-  listMembers, listMemberMails, saveMembers, memberId, listRounds, getRound,
-  getTipping, openTipping, setTippingOpen, listTips, deleteTipping, tippingToRound,
+  listRounds, listMembers, getMember, ensureMembers, saveMember, deleteMember,
 } from '../db.js';
+import { computeOverview, rowOfMember } from '../overview.js';
+import { roundCode, roundLabel, normName } from '../halbserie.js';
+import { adminGate, adminNav } from './admin.js';
+import { pointsCardHtml } from './punkte.js';
 import { esc, $ } from '../util.js';
 
-const byName = (a, b) => a.name.localeCompare(b.name, 'de');
-const EMAIL = /^\S+@\S+\.\S+$/;
+const memberHref = (m) => `#/admin/mitglied/${encodeURIComponent(m.id)}`;
 
-const deniedMsg = (e) => /permission/i.test(e?.code + ' ' + e?.message)
-  ? 'Keine Berechtigung. Die Firestore-Regeln sind vermutlich noch nicht eingespielt: npx firebase-tools deploy --only firestore:rules'
-  : e.message;
+/** Übersicht: alle Mitglieder × alle Halbserien (Punkte und Rang). */
+export async function renderMembers(app, session, flash = '') {
+  if (!adminGate(app, session)) return;
+  const [members, rounds] = await Promise.all([listMembers(), listRounds()]);
+  const overview = await computeOverview(rounds, { canWrite: true });
 
-export async function renderMembers(host) {
-  try { await renderMembersInner(host); } catch (e) {
-    console.error(e);
-    host.innerHTML = `<div class="card"><h3>Mitglieder</h3><div class="msg err">${esc(deniedMsg(e))}</div></div>`;
-  }
-}
-
-async function renderMembersInner(host) {
-  host.innerHTML = '<div class="card"><h3>Mitglieder</h3><p class="muted">Lade …</p></div>';
-  const [saved, mails, rounds, tipping] = await Promise.all([listMembers(), listMemberMails().catch(() => ({})), listRounds(), getTipping().catch(() => null)]);
-  // Wer hat in der aktuellsten Halbserie mitgetippt? -> Haken vorbelegt
-  const latest = rounds.length ? await getRound(rounds[0].id) : null;
-  const current = new Set((latest?.players ?? []).map((p) => memberId(p.name)));
-  const tipCount = new Map();
-  if (tipping) (await listTips().catch(() => [])).forEach((t) => { tipCount.set(t.id, Object.keys(t.tips ?? {}).length); });
-
-  const rows = saved.map((m) => ({ id: m.id, name: m.name, aktiv: m.aktiv, sendExcel: !!m.sendExcel, email: mails[m.id] ?? '', aktuell: current.has(m.id), stored: true }));
-  // Vorbelegung aus der letzten Halbserie nur beim ersten Mal; danach zählt die gespeicherte Liste (sonst kämen gelöschte Mitglieder zurück)
-  for (const p of saved.length ? [] : latest?.players ?? []) {
-    const id = memberId(p.name);
-    if (!rows.some((r) => r.id === id)) rows.push({ id, name: p.name, aktiv: true, sendExcel: false, email: '', aktuell: true, stored: false });
-  }
-  const removed = [];
-  const total = tipping?.order?.length ?? 0;
-
-  host.innerHTML = `<div class="card"><h3>Mitglieder der neuen Halbserie</h3>
-    <p class="muted">Haken = tippt mit und erscheint in der Namensliste des Tippformulars. Vorbelegt sind alle, die in „${esc(latest?.title ?? 'der letzten Halbserie')}“ mitgetippt haben.
-      „Excel per Mail“ = der Tippschein kann nach dem Abschicken als Excel an die hinterlegte Adresse gehen.</p>
-    <form class="add" id="m-add" autocomplete="off"><input id="m-name" placeholder="Neues Mitglied, z. B. Sabine" maxlength="30" aria-label="Name des neuen Mitglieds"><button class="primary" type="submit">Hinzufügen</button></form>
-    <div class="tools"><button type="button" id="m-cur">Nur letzte Mitspieler</button><button type="button" id="m-all">Alle</button><button type="button" id="m-none">Keine</button>
-      <span class="count" style="margin-left:auto"><b id="m-n">0</b> von <span id="m-t">0</span> tippen mit</span></div>
-    <ul class="mlist" id="m-list"></ul>
-    <div class="row"><button type="button" class="primary" id="m-save">Mitglieder speichern</button><span id="m-msg" class="muted" role="status"></span></div></div>`;
-
-  const list = $('#m-list'), msg = $('#m-msg');
-  const say = (t, err) => { msg.textContent = t; msg.style.color = err ? '#b3261e' : ''; };
-
-  function draw() {
-    rows.sort(byName);
-    list.innerHTML = rows.map((m, i) => {
-      const n = tipCount.get(m.id);
-      const badge = !m.stored && !m.aktuell ? '<span class="badge new">neu</span>' : m.aktuell ? '<span class="badge">tippt aktuell mit</span>' : '<span class="badge old">früher</span>';
-      const progress = tipping && n != null ? `<span class="badge ${n >= total ? '' : 'old'}">${n}/${total} Tipps</span>` : '';
-      return `<li class="${m.aktiv ? '' : 'off'}"><div class="mrow">
-        <label class="gut"><input type="checkbox" data-a="${i}" ${m.aktiv ? 'checked' : ''} aria-label="${esc(m.name)} tippt mit"><span class="nm">${esc(m.name)}</span>${progress}${badge}</label>
-        <button class="rm" data-rm="${i}" aria-label="${esc(m.name)} aus der Liste löschen" title="Löschen">×</button></div>
-        ${m.aktiv ? `<div class="mx gut"><label class="chk"><input type="checkbox" data-x="${i}" ${m.sendExcel ? 'checked' : ''}> Excel per Mail</label>
-          ${m.sendExcel ? `<input type="email" data-e="${i}" value="${esc(m.email)}" placeholder="E-Mail-Adresse" inputmode="email" aria-label="E-Mail-Adresse von ${esc(m.name)}">` : ''}</div>` : ''}</li>`;
-    }).join('');
-    $('#m-n').textContent = rows.filter((m) => m.aktiv).length; $('#m-t').textContent = rows.length;
-  }
-
-  list.addEventListener('change', (e) => {
-    const t = e.target;
-    if (t.dataset.a != null) rows[t.dataset.a].aktiv = t.checked;
-    else if (t.dataset.x != null) rows[t.dataset.x].sendExcel = t.checked;
-    else return;
-    draw();
+  const rows = members.map((m) => {
+    const cells = overview.map((o) => rowOfMember(m, o.table));
+    const sum = cells.reduce((a, c) => a + (c?.total ?? 0), 0);
+    return { m, cells, sum, count: cells.filter(Boolean).length };
   });
-  list.addEventListener('input', (e) => { if (e.target.dataset.e != null) rows[e.target.dataset.e].email = e.target.value; });
-  list.addEventListener('click', async (e) => {
-    const i = e.target.dataset.rm; if (i == null) return;
-    const m = rows[i];
-    const hasTips = tipCount.get(m.id) > 0;
-    if (!confirm(`„${m.name}“ aus der Mitgliederliste löschen?${hasTips ? ' Bereits abgeschickte Tipps bleiben in der Tipprunde erhalten.' : ''}`)) return;
-    if (m.stored) removed.push(m.id);
-    rows.splice(i, 1); draw();
-    say(`${m.name} entfernt. Mit „Mitglieder speichern“ übernehmen.`);
-  });
-  $('#m-add').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = $('#m-name').value.trim().replace(/\s+/g, ' ');
-    if (!name) { say('Bitte einen Namen eingeben.', true); return; }
-    const id = memberId(name);
-    if (rows.some((r) => r.id === id || r.name.toLowerCase() === name.toLowerCase())) { say(`„${name}“ gibt es schon, Haken setzen genügt.`, true); return; }
-    const gone = removed.indexOf(id); if (gone >= 0) removed.splice(gone, 1);
-    rows.push({ id, name, aktiv: true, sendExcel: false, email: '', aktuell: false, stored: false });
-    draw(); $('#m-name').value = ''; say(`${name} angelegt. Mit „Mitglieder speichern“ übernehmen.`);
-  });
-  $('#m-cur').onclick = () => { rows.forEach((m) => { m.aktiv = m.aktuell; }); draw(); };
-  $('#m-all').onclick = () => { rows.forEach((m) => { m.aktiv = true; }); draw(); };
-  $('#m-none').onclick = () => { rows.forEach((m) => { m.aktiv = false; }); draw(); };
-  $('#m-save').addEventListener('click', async () => {
-    const bad = rows.find((m) => m.aktiv && m.sendExcel && !EMAIL.test(m.email.trim()));
-    if (bad) { say(`Für ${bad.name} fehlt eine gültige E-Mail-Adresse (oder „Excel per Mail“ abwählen).`, true); return; }
-    $('#m-save').disabled = true; say('Speichere …');
-    try {
-      await saveMembers(rows.map((m) => ({ ...m, sendExcel: m.aktiv && m.sendExcel })), removed);
-      rows.forEach((m) => { m.stored = true; }); removed.length = 0;
-      say(`${rows.filter((m) => m.aktiv).length} Mitglieder tippen mit. Gespeichert.`); draw();
-    } catch (err) { say(err.message, true); } finally { $('#m-save').disabled = false; }
-  });
-  draw();
-}
 
-export async function renderTipping(host, onChange) {
-  let t;
-  try { t = await getTipping(); } catch (e) {
-    host.innerHTML = `<div class="card"><h3>Tipprunde</h3><div class="msg err">${esc(deniedMsg(e))}</div></div>`;
-    return;
-  }
-  const now = new Date();
-  const thisYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-  const title = (typ, jahr) => `${typ === 'hin' ? 'Hinrunde' : 'Rückrunde'} ${String(jahr).slice(2)}/${String(+jahr + 1).slice(2)}`;
+  app.innerHTML = `
+    ${adminNav('members')}
+    ${flash}
+    <div class="card"><h3>Mitglieder (${members.length})</h3>
+      <div class="row">
+        <input id="newname" placeholder="Neues Mitglied, z. B. Meier,H." />
+        <button id="add">Hinzufügen</button>
+        <button id="sync">Aus allen Halbserien übernehmen</button>
+      </div>
+      <div class="muted">Neue Namen aus Excel-Uploads werden automatisch ergänzt. Zelle = Punkte (Rang) in der Halbserie.</div>
+      <div id="matwrap">${members.length ? '' : '<div class="msg">Noch keine Mitglieder. Lade eine Excel-Datei hoch oder übernimm sie aus vorhandenen Halbserien.</div>'}</div>
+    </div>`;
 
-  if (!t) {
-    host.innerHTML = `<div class="card"><h3>Tipprunde eröffnen</h3>
-      <p class="muted">Holt die 153 Spielpaarungen der Halbserie von OpenLigaDB und schaltet das Tippformular frei.</p>
-      <div class="row"><label>Saison (Startjahr) <input id="t-jahr" type="number" value="${thisYear}" style="width:6rem"></label>
-        <label>Typ <select id="t-typ"><option value="rueck">Rückrunde</option><option value="hin">Hinrunde</option></select></label></div>
-      <div class="row"><button class="primary" id="t-open">Tipprunde eröffnen</button><span id="t-msg" class="muted" role="status"></span></div></div>`;
-    $('#t-open').addEventListener('click', async () => {
-      const jahr = Number($('#t-jahr').value), typ = $('#t-typ').value;
-      $('#t-open').disabled = true; $('#t-msg').textContent = 'Lade Spielplan …';
-      try { await openTipping({ title: title(typ, jahr), jahr, typ }); onChange(); }
-      catch (e) { $('#t-msg').textContent = e.message; $('#t-open').disabled = false; }
+  // Sortierbare Tabelle: Klick auf die Spaltenüberschrift sortiert, nochmaliger Klick kehrt die Richtung um.
+  const sort = { key: 'name', dir: 1 };
+  const value = (r, key) => (key === 'name' ? r.m.name : key === 'count' ? r.count : key === 'sum' ? r.sum : r.cells[key]?.total ?? null);
+  const drawTable = () => {
+    const sorted = [...rows].sort((a, b) => {
+      const va = value(a, sort.key);
+      const vb = value(b, sort.key);
+      if (va === null || vb === null) return (va === null) - (vb === null); // "–" immer ans Ende
+      const c = typeof va === 'string' ? va.localeCompare(vb, 'de') : va - vb;
+      return (c || a.m.name.localeCompare(b.m.name, 'de')) * (c ? sort.dir : 1);
     });
-    return;
-  }
+    const th = (key, html, title = '') => `<th class="sortable" data-sort="${key}" title="${esc(title)}">${html}${sort.key === String(key) ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+    $('#matwrap').innerHTML = `<div class="scroll"><table class="mat">
+      <thead><tr>${th('name', 'Name')}${overview.map((o, i) => th(i, esc(roundCode(o.round)), roundLabel(o.round))).join('')}
+        ${th('count', 'Halbserien')}${th('sum', 'Punkte gesamt')}</tr></thead>
+      <tbody>${sorted.map(({ m, cells, sum, count }) => `<tr>
+        <td><a href="${memberHref(m)}">${esc(m.name)}</a></td>
+        ${cells.map((c) => `<td>${c ? `${c.total} <span class="muted">(${c.rank}.)</span>` : '<span class="muted">–</span>'}</td>`).join('')}
+        <td>${count}</td><td class="total">${sum}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+    app.querySelectorAll('th[data-sort]').forEach((h) => h.addEventListener('click', () => {
+      const k = h.dataset.sort;
+      const key = k === 'name' || k === 'count' || k === 'sum' ? k : Number(k);
+      if (String(sort.key) === k) sort.dir = -sort.dir;
+      else { sort.key = key; sort.dir = key === 'name' ? 1 : -1; } // Zahlen zuerst absteigend (beste oben)
+      drawTable();
+    }));
+  };
+  if (members.length) drawTable();
 
-  const tips = await listTips().catch(() => []);
-  const full = tips.filter((p) => Object.keys(p.tips ?? {}).length >= t.order.length).length;
-  host.innerHTML = `<div class="card"><h3>Tipprunde: ${esc(t.title)}</h3>
-    <p>Status: <strong>${t.open ? 'offen' : 'geschlossen'}</strong> · ${tips.length} Mitglieder haben abgeschickt, ${full} davon vollständig.</p>
-    <div class="row"><a class="linkbtn" href="#/tippen" style="text-decoration:underline">Zum Tippformular</a>
-      <button id="t-toggle">${t.open ? 'Tipprunde schließen' : 'Tipprunde wieder öffnen'}</button></div>
-    <div class="row"><button class="primary" id="t-round" ${tips.length ? '' : 'disabled'}>Als Halbserie speichern</button>
-      <button id="t-drop">Tipprunde verwerfen</button><span id="t-msg" class="muted" role="status"></span></div>
-    <p class="muted">„Als Halbserie speichern“ beendet die Tipprunde: alle abgeschickten Tipps werden zur Halbserie mit Tabelle.</p></div>`;
-  $('#t-toggle').addEventListener('click', async () => { await setTippingOpen(!t.open); onChange(); });
-  $('#t-round').addEventListener('click', async () => {
-    if (!confirm(`„${t.title}“ als Halbserie speichern? Die Tipprunde wird dabei beendet.`)) return;
-    $('#t-msg').textContent = 'Speichere …';
-    try { const id = await tippingToRound(t); location.hash = `#/runde/${id}`; } catch (e) { $('#t-msg').textContent = e.message; }
+  $('#add').addEventListener('click', async () => {
+    const name = $('#newname').value.trim();
+    if (!name) return;
+    const added = await ensureMembers([name]);
+    renderMembers(app, session, added.length
+      ? `<div class="msg ok">„${esc(name)}“ hinzugefügt.</div>`
+      : `<div class="msg warn">„${esc(name)}“ gibt es schon.</div>`);
   });
-  $('#t-drop').addEventListener('click', async () => {
-    if (!confirm('Tipprunde samt aller abgeschickten Tipps wirklich verwerfen?')) return;
-    await deleteTipping(); onChange();
+  $('#sync').addEventListener('click', async () => {
+    const names = overview.flatMap((o) => o.round.players.map((p) => p.name));
+    const added = await ensureMembers(names);
+    renderMembers(app, session, `<div class="msg ok">${added.length
+      ? `${added.length} neue Mitglieder übernommen: ${added.map(esc).join('; ')}.`
+      : 'Alle Mitspieler sind schon Mitglieder.'}</div>`);
+  });
+}
+
+/** Punkteübersicht eines Mitglieds über alle getippten Halbserien + Stammdaten bearbeiten. */
+export async function renderMember(app, session, id, flash = '') {
+  if (!adminGate(app, session)) return;
+  const [m, rounds] = await Promise.all([getMember(id), listRounds()]);
+  if (!m) { app.innerHTML = `${adminNav('members')}<div class="msg err">Mitglied nicht gefunden.</div>`; return; }
+  const overview = await computeOverview(rounds, { canWrite: true });
+  const played = overview.map((o) => ({ o, row: rowOfMember(m, o.table) })).filter((x) => x.row);
+
+  app.innerHTML = `
+    ${adminNav('members')}
+    ${flash}
+    <p><a href="#/admin/mitglieder">← Alle Mitglieder</a></p>
+    <h2>${esc(m.name)}</h2>
+    ${pointsCardHtml(played)}
+    <div class="card"><h3>Stammdaten</h3>
+      <div class="row"><label>Name <input id="mname" value="${esc(m.name)}" style="width:18rem" /></label></div>
+      <label class="muted" style="display:block">Weitere Schreibweisen in Excel-Dateien (eine pro Zeile)</label>
+      <textarea id="maliases" rows="3" style="width:18rem">${esc((m.aliases ?? []).join('\n'))}</textarea>
+      <div class="row"><button id="msave">Speichern</button><button id="mdel">Mitglied löschen</button></div>
+      <div class="muted">Wird der Name geändert, bleibt die alte Schreibweise als Alias erhalten, damit die Tipps weiter zugeordnet werden.
+        Löschen entfernt nur den Mitgliedseintrag, nicht die Tipps in den Halbserien (beim nächsten Upload wird der Name wieder angelegt).</div>
+    </div>`;
+
+  $('#msave').addEventListener('click', async () => {
+    const name = $('#mname').value.trim();
+    if (!name) return;
+    const aliases = $('#maliases').value.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (normName(name) !== normName(m.name)) aliases.push(m.name);
+    const seen = new Set([normName(name)]);
+    const clean = aliases.filter((a) => !seen.has(normName(a)) && seen.add(normName(a)));
+    await saveMember(id, { name, aliases: clean });
+    renderMember(app, session, id, '<div class="msg ok">Gespeichert.</div>');
+  });
+  $('#mdel').addEventListener('click', async () => {
+    if (!confirm(`Mitglied „${m.name}“ wirklich löschen?`)) return;
+    await deleteMember(id);
+    location.hash = '#/admin/mitglieder';
   });
 }

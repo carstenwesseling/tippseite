@@ -1,12 +1,17 @@
 import { listRounds, getTipping } from '../db.js';
 import { esc } from '../util.js';
+import { compareRounds } from '../halbserie.js';
+import { renderTable } from './table.js';
 
-export async function renderHome(app) {
-  const [rounds, tipping] = await Promise.all([listRounds(), getTipping().catch(() => null)]);
-  const tippBanner = tipping?.open ? `<a class="round" href="#/tippen"><span><strong>${esc(tipping.title)}</strong><span class="muted" style="display:block">Die Tipprunde ist offen</span></span><span class="primary-link">Jetzt tippen</span></a>` : '';
-  app.innerHTML = tippBanner + '<h1>Halbserien</h1>' + (rounds.length
-    ? `<div class="rounds">${rounds.map((r) => `<a class="round" href="#/runde/${esc(r.id)}"><span><strong>${esc(r.title)}</strong>
-        <span class="muted" style="display:block">${esc(r.typ === 'hin' ? 'Hinrunde' : 'Rückrunde')} · Saison ${esc(r.jahr)}/${String(+r.jahr + 1).slice(2)}</span></span>
-        <span class="muted">${r.playerCount} Mitspieler</span></a>`).join('')}</div>`
-    : '<div class="msg">Noch keine Halbserie hochgeladen. Die Verwaltung (Admin) kann Excel-Dateien hochladen.</div>');
+/** Startseite: die aktuelle Halbserie ist immer aufgeklappt; andere Halbserien wählt man im Dropdown. */
+export async function renderHome(app, session) {
+  const [rounds, tipping] = await Promise.all([listRounds().then((r) => r.sort(compareRounds)), getTipping().catch(() => null)]);
+  const banner = tipping?.open ? `<a class="round" href="#/tippen"><span><strong>${esc(tipping.title)}</strong>
+    <span class="muted" style="display:block">Die Tipprunde ist offen</span></span><span>Jetzt tippen</span></a>` : '';
+  if (rounds.length) {
+    await renderTable(app, session, rounds[0].id);
+    if (banner) app.insertAdjacentHTML('afterbegin', banner);
+    return;
+  }
+  app.innerHTML = `${banner}<h1>Halbserien</h1><div class="msg">Noch keine Halbserie hochgeladen. Die Verwaltung (Admin) kann Excel-Dateien hochladen.</div>`;
 }

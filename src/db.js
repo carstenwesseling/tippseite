@@ -1,8 +1,9 @@
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, writeBatch, orderBy, query, where,
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase.js';
 import { fetchSeason } from './openliga.js';
+import { roundCode, compareRounds, normName, samePerson, isPlaceholder } from './halbserie.js';
 
 const STALE_MS = 15 * 60 * 1000;
 
@@ -18,32 +19,84 @@ export async function checkAdmin(user) {
 
 // ---- Halbserien ----
 export async function listRounds() {
-  const snap = await getDocs(query(collection(db, 'rounds'), orderBy('createdAt', 'desc')));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const snap = await getDocs(collection(db, 'rounds'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(compareRounds);
 }
 
 export async function getRound(id) {
   const r = await getDoc(doc(db, 'rounds', id));
   if (!r.exists()) return null;
   const ps = await getDocs(collection(db, 'rounds', id, 'players'));
-  return { id, ...r.data(), players: ps.docs.map((d) => d.data()) };
+  return { id, ...r.data(), players: ps.docs.map((d) => d.data()).filter((p) => !isPlaceholder(p.name)).map((p) => ({ ...p, name: samePerson(p.name) })) };
 }
 
 /** Speichert eine Halbserie samt Spielern (Batches à max. 400 Schreibvorgänge). */
-export async function saveRound({ title, jahr, typ, order, excelResults, players }) {
+export async function saveRound({ jahr, typ, order, excelResults, players, kind, liga, spieltage, totalsOnly }) {
   const ref = doc(collection(db, 'rounds'));
   await setDoc(ref, {
-    title, jahr, typ, order, excelResults: excelResults ?? [],
+    title: roundCode({ jahr, typ, liga }), jahr, typ, order: order ?? [], excelResults: excelResults ?? [],
     playerCount: players.length, createdAt: Date.now(),
+    ...(kind ? { kind } : {}), ...(liga ? { liga } : {}), ...(spieltage ? { spieltage } : {}), ...(totalsOnly ? { totalsOnly: true } : {}),
   });
+  await writePlayers(ref.id, players);
+  return ref.id;
+}
+
+async function writePlayers(roundId, players) {
   for (let i = 0; i < players.length; i += 400) {
     const batch = writeBatch(db);
     for (const p of players.slice(i, i + 400)) {
-      batch.set(doc(db, 'rounds', ref.id, 'players', encodeURIComponent(p.name)), { name: p.name, tips: p.tips });
+      batch.set(doc(db, 'rounds', roundId, 'players', encodeURIComponent(p.name)), { name: p.name, tips: p.tips ?? {}, ...(p.perDay ? { perDay: p.perDay } : {}), ...(typeof p.zwei === 'number' ? { zwei: p.zwei } : {}), ...(typeof p.eins === 'number' ? { eins: p.eins } : {}), ...(typeof p.total === 'number' ? { total: p.total } : {}) });
     }
     await batch.commit();
   }
-  return ref.id;
+}
+
+/**
+ * Ergänzt bei bestehenden Spielern einer Halbserie nur die Werte 2er/1er (alles andere bleibt unverändert).
+ * Zuordnung über den Namen (Schreibweise egal, bekannte Namensvarianten und `alias`-Zuordnung berücksichtigt).
+ * @param {Array<{name:string,zwei?:number,eins?:number}>} rows
+ * @param {Record<string,string>} alias Dateiname -> Mitgliedsname
+ * @returns {Promise<{updated:number, unmatched:string[]}>}
+ */
+export async function addStatsToRound(roundId, rows, alias = {}) {
+  const snap = await getDocs(collection(db, 'rounds', roundId, 'players'));
+  const byName = new Map(snap.docs.map((d) => [normName(samePerson(d.data().name)), d.ref]));
+  const ops = [];
+  const unmatched = [];
+  for (const r of rows) {
+    const ref = byName.get(normName(samePerson(r.name))) ?? byName.get(normName(samePerson(alias[r.name] ?? '')));
+    const upd = {};
+    if (typeof r.zwei === 'number') upd.zwei = r.zwei;
+    if (typeof r.eins === 'number') upd.eins = r.eins;
+    if (!Object.keys(upd).length) continue;
+    if (!ref) { unmatched.push(r.name); continue; }
+    ops.push([ref, upd]);
+  }
+  for (let i = 0; i < ops.length; i += 400) {
+    const batch = writeBatch(db);
+    ops.slice(i, i + 400).forEach(([ref, upd]) => batch.update(ref, upd));
+    await batch.commit();
+  }
+  return { updated: ops.length, unmatched };
+}
+
+/**
+ * Fügt Mitspieler (z. B. einzeln hochgeladene Blätter) einer bestehenden Halbserie hinzu.
+ * Gleichnamige Mitspieler werden überschrieben. Spielplan/Fallback-Ergebnisse werden nur ergänzt, wenn leer.
+ */
+export async function addPlayersToRound(roundId, { players, order, excelResults }) {
+  const ref = doc(db, 'rounds', roundId);
+  const round = await getDoc(ref);
+  if (!round.exists()) throw new Error('Halbserie nicht gefunden.');
+  await writePlayers(roundId, players);
+  const count = (await getDocs(collection(db, 'rounds', roundId, 'players'))).size;
+  const patch = { playerCount: count };
+  const r = round.data();
+  if (!r.order?.length && order?.length) patch.order = order;
+  if (!r.excelResults?.length && excelResults?.length) patch.excelResults = excelResults;
+  await updateDoc(ref, patch);
+  return count;
 }
 
 export async function deleteRound(id) {
@@ -56,19 +109,39 @@ export async function deleteRound(id) {
   await deleteDoc(doc(db, 'rounds', id));
 }
 
+/**
+ * Löscht alle Daten: Halbserien samt Mitspielern, Mitglieder und den Ergebnis-Cache.
+ * Admin-Einträge bleiben erhalten. Gibt die Anzahl gelöschter Halbserien/Mitglieder zurück.
+ */
+export async function deleteAllData() {
+  const rounds = await listRounds();
+  for (const r of rounds) await deleteRound(r.id);
+  const members = await getDocs(collection(db, 'members'));
+  const results = await getDocs(collection(db, 'results'));
+  const rest = [...members.docs, ...results.docs];
+  for (let i = 0; i < rest.length; i += 400) {
+    const batch = writeBatch(db);
+    rest.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  return { rounds: rounds.length, members: members.size, results: results.size };
+}
+
 // ---- Ergebnisse (Cache in Firestore, Quelle OpenLigaDB) ----
 /**
  * Liefert die Spiele einer Saison. Frischer Cache -> Cache; sonst API.
  * Schreiben in den Cache nur, wenn `canWrite` (Admin) – Besucher nutzen die API-Daten nur im Speicher.
  */
-export async function getSeasonMatches(jahr, { canWrite = false, force = false } = {}) {
+export async function getSeasonMatches(jahr, { canWrite = false, force = false, live = false } = {}) {
   const ref = doc(db, 'results', String(jahr));
   let cached = null;
   try {
     const s = await getDoc(ref);
     if (s.exists()) cached = s.data();
   } catch { /* Cache optional */ }
-  if (cached && !force && Date.now() - cached.updatedAt < STALE_MS) return { ...cached, source: 'cache' };
+  // live: laufender Spieltag – kurzer Cache (45 s), damit ein Minutentakt tatsächlich frische Daten holt
+  const maxAge = live ? 45 * 1000 : STALE_MS;
+  if (cached && !force && Date.now() - cached.updatedAt < maxAge) return { ...cached, source: 'cache' };
   try {
     const matches = await fetchSeason(jahr);
     const fresh = { matches, updatedAt: Date.now() };
@@ -80,34 +153,78 @@ export async function getSeasonMatches(jahr, { canWrite = false, force = false }
   }
 }
 
-// ---- Mitglieder ----
-// members/{id}: { name, aktiv, sendExcel } öffentlich lesbar; memberMail/{id}: { email } nur für Admins.
-export const memberId = (name) => encodeURIComponent(name.trim());
+// ---- Mitglieder (nur Admins) ----
+// members/{id}: { name, aliases: [Schreibweisen in Excel-Dateien], createdAt }
+export const memberId = (name) => encodeURIComponent(normName(name));
+export const memberNames = (m) => [m.name, ...(m.aliases ?? [])].map(normName);
 
-export async function listMembers({ onlyActive = false } = {}) {
-  const ref = collection(db, 'members');
+export async function listMembers() {
+  const snap = await getDocs(collection(db, 'members'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => !isPlaceholder(m.name)).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}
+
+export async function getMember(id) {
+  const s = await getDoc(doc(db, 'members', id));
+  return s.exists() ? { id, ...s.data() } : null;
+}
+
+/** Legt Mitglieder für alle noch unbekannten Namen an (Vergleich ohne Groß-/Kleinschreibung und über Aliase). */
+export async function ensureMembers(names) {
+  const members = await listMembers();
+  const known = new Set(members.flatMap(memberNames));
+  const added = [];
+  for (const raw of names) {
+    const name = raw.trim();
+    const n = normName(name);
+    if (!n || known.has(n)) continue;
+    known.add(n);
+    added.push(name);
+  }
+  for (let i = 0; i < added.length; i += 400) {
+    const batch = writeBatch(db);
+    for (const name of added.slice(i, i + 400)) {
+      batch.set(doc(db, 'members', memberId(name)), { name, aliases: [], createdAt: Date.now() });
+    }
+    await batch.commit();
+  }
+  return added;
+}
+
+export async function saveMember(id, { name, aliases }) {
+  await updateDoc(doc(db, 'members', id), { name, aliases });
+}
+
+export const deleteMember = (id) => deleteDoc(doc(db, 'members', id));
+
+// ---- Mitspieler der Tipprunde ("Tipper") ----
+// tippers/{id}: { name, aktiv, sendExcel } öffentlich lesbar (Namensliste im Tippformular); tipperMail/{id}: { email } nur für Admins.
+// Getrennt von `members` (Stammdaten/Aliase der Mitgliederverwaltung); neue Tipper werden dort per ensureMembers ergänzt.
+export const tipperId = (name) => encodeURIComponent(name.trim());
+
+export async function listTippers({ onlyActive = false } = {}) {
+  const ref = collection(db, 'tippers');
   const snap = await getDocs(onlyActive ? query(ref, where('aktiv', '==', true)) : ref);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => !isPlaceholder(m.name)).sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
 /** Nur Admins: hinterlegte Mailadressen (id -> Adresse). */
-export async function listMemberMails() {
-  const snap = await getDocs(collection(db, 'memberMail'));
+export async function listTipperMails() {
+  const snap = await getDocs(collection(db, 'tipperMail'));
   return Object.fromEntries(snap.docs.map((d) => [d.id, d.data().email]));
 }
 
 /** rows: { name, aktiv, sendExcel, email }; removed: Mitglieds-IDs, die gelöscht werden. */
-export async function saveMembers(rows, removed = []) {
+export async function saveTippers(rows, removed = []) {
   const ops = [];
   for (const r of rows) {
-    const id = memberId(r.name);
-    ops.push((b) => b.set(doc(db, 'members', id), { name: r.name.trim(), aktiv: !!r.aktiv, sendExcel: !!r.sendExcel }));
-    if (r.sendExcel && r.email) ops.push((b) => b.set(doc(db, 'memberMail', id), { email: r.email.trim() }));
-    else ops.push((b) => b.delete(doc(db, 'memberMail', id)));
+    const id = tipperId(r.name);
+    ops.push((b) => b.set(doc(db, 'tippers', id), { name: r.name.trim(), aktiv: !!r.aktiv, sendExcel: !!r.sendExcel }));
+    if (r.sendExcel && r.email) ops.push((b) => b.set(doc(db, 'tipperMail', id), { email: r.email.trim() }));
+    else ops.push((b) => b.delete(doc(db, 'tipperMail', id)));
   }
   for (const id of removed) {
-    ops.push((b) => b.delete(doc(db, 'members', id)));
-    ops.push((b) => b.delete(doc(db, 'memberMail', id)));
+    ops.push((b) => b.delete(doc(db, 'tippers', id)));
+    ops.push((b) => b.delete(doc(db, 'tipperMail', id)));
   }
   for (let i = 0; i < ops.length; i += 400) {
     const batch = writeBatch(db);
@@ -144,9 +261,12 @@ export async function getTips(id) {
   return s.exists() ? s.data() : null;
 }
 
-/** Speichert den Tipp; erneutes Abschicken überschreibt ihn, solange die Runde offen ist. */
+/** Abschicken speichert dauerhaft (locked): Besucher können den Tipp danach nicht mehr überschreiben. */
 export const saveTips = (id, name, tips) =>
-  setDoc(doc(db, 'tipping', 'current', 'tips', id), { name, tips, updatedAt: Date.now() });
+  setDoc(doc(db, 'tipping', 'current', 'tips', id), { name, tips, updatedAt: Date.now(), locked: true });
+
+/** Nur Admins: Tipp zum Überschreiben freigeben. */
+export const unlockTips = (id) => setDoc(doc(db, 'tipping', 'current', 'tips', id), { locked: false }, { merge: true });
 
 /** Nur Admins. */
 export async function listTips() {
@@ -172,7 +292,7 @@ export async function tippingToRound(t) {
     tips: Object.fromEntries(Object.entries(p.tips ?? {}).filter(([, v]) => Number.isFinite(v?.h) && Number.isFinite(v?.g))),
   }));
   const id = await saveRound({
-    title: t.title, jahr: t.jahr, typ: t.typ, excelResults: [], players,
+    jahr: t.jahr, typ: t.typ, excelResults: [], players,
     order: t.order.map((o) => ({ block: o.spieltag - t.first + 1, home: o.home, away: o.away, key: o.key })),
   });
   await deleteTipping();
@@ -180,8 +300,85 @@ export async function tippingToRound(t) {
 }
 
 /** Excel-Tippschein per Mail: Dokument für die Firebase-Erweiterung "Trigger Email from Firestore" (Sammlung `mail`). */
-export const queueExcelMail = ({ memberId: id, to, subject, text, filename, base64 }) =>
+export const queueExcelMail = ({ tipperId: id, to, subject, text, filename, base64 }) =>
   addDoc(collection(db, 'mail'), {
-    memberId: id, to: [to],
+    tipperId: id, to: [to],
     message: { subject, text, attachments: [{ filename, content: base64, encoding: 'base64' }] },
   });
+
+// ---- Nächste Tippfete ----
+// settings/tippfete: { datum: 'YYYY-MM-DD', uhrzeit: 'HH:MM', ort: Freitext } öffentlich lesbar, schreiben nur Admins.
+const TIPPFETE = () => doc(db, 'settings', 'tippfete');
+
+export async function getTippfete() {
+  const s = await getDoc(TIPPFETE());
+  const d = s.exists() ? s.data() : null;
+  return d?.datum ? d : null;
+}
+
+/** Speichert den Termin; ohne Datum, Uhrzeit und Ort wird er entfernt. */
+export async function saveTippfete({ datum, uhrzeit, ort }) {
+  if (!datum && !uhrzeit && !ort) { await deleteDoc(TIPPFETE()); return; }
+  await setDoc(TIPPFETE(), { datum: datum ?? '', uhrzeit: uhrzeit ?? '', ort: (ort ?? '').trim(), updatedAt: Date.now() });
+  if (!(await getDoc(COUNTS())).exists()) await setDoc(COUNTS(), { k: 0, n: 0, last: '' }); // Zähler der Umfrage anlegen
+}
+
+// ---- Umfrage zur Tippfete ----
+// settings/tippfeteCounts: { k, n, last } öffentlich lesbar (nur Anzahlen); tippfeteVotes/{id}: { name, antwort: 'k'|'n', at }
+// nur für Admins listbar (Namen). Eine Stimme kann geändert werden (Komme <-> Komme nicht); der Zähler wird passend angepasst.
+const COUNTS = () => doc(db, 'settings', 'tippfeteCounts');
+const VOTES = 'tippfeteVotes';
+export const voteId = (name) => encodeURIComponent(normName(name));
+
+export async function getTippfeteCounts() {
+  const s = await getDoc(COUNTS());
+  return s.exists() ? { k: s.data().k ?? 0, n: s.data().n ?? 0 } : { k: 0, n: 0 };
+}
+
+/** Bisherige Antwort dieses Mitglieds ('k' | 'n') oder null, wenn noch nicht abgestimmt. */
+export async function getVote(name) {
+  const s = await getDoc(doc(db, VOTES, voteId(name)));
+  return s.exists() ? s.data().antwort : null;
+}
+
+/** Stimme abgeben oder ändern ('k' = kommt, 'n' = kommt nicht): Stimme und Zähler in einer Transaktion. */
+export async function voteTippfete(name, antwort) {
+  if (!['k', 'n'].includes(antwort)) throw new Error('Ungültige Antwort');
+  const id = voteId(name);
+  const vref = doc(db, VOTES, id);
+  await runTransaction(db, async (tx) => {
+    const old = await tx.get(vref);
+    const prev = old.exists() ? old.data().antwort : null;
+    if (prev === antwort) return; // unverändert
+    const c = (await tx.get(COUNTS())).data() ?? { k: 0, n: 0 };
+    const d = (a) => (antwort === a ? 1 : 0) - (prev === a ? 1 : 0);
+    if (prev) tx.update(vref, { antwort, at: Date.now() });
+    else tx.set(vref, { name, antwort, at: Date.now() });
+    tx.update(COUNTS(), { k: (c.k ?? 0) + d('k'), n: (c.n ?? 0) + d('n'), last: id });
+  });
+}
+
+/** Nur Admins: alle Stimmen mit Namen. */
+export async function listVotes() {
+  const snap = await getDocs(collection(db, VOTES));
+  return snap.docs.map((d) => d.data());
+}
+
+/** Nur Admins: Umfrage zurücksetzen (z. B. für die nächste Tippfete). */
+export async function resetVotes() {
+  const snap = await getDocs(collection(db, VOTES));
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const batch = writeBatch(db);
+    snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  await setDoc(COUNTS(), { k: 0, n: 0, last: '' });
+}
+
+/** Mitglieder der aktuellen (neuesten) Halbserie: Namen, die abstimmen dürfen. */
+export async function currentMembers() {
+  const rounds = (await listRounds()).sort(compareRounds);
+  if (!rounds.length) return [];
+  const r = await getRound(rounds[0].id);
+  return [...new Set((r?.players ?? []).map((p) => p.name))].sort((a, b) => a.localeCompare(b, 'de'));
+}

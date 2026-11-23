@@ -19,12 +19,55 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
-    // Mitglieder: Namen und Haken öffentlich (Auswahlliste im Tippformular); Mailadressen nur für Admins.
-    match /members/{id} {
+    // Einstellungen (z. B. Termin der nächsten Tippfete): öffentlich lesbar, schreiben nur Admins.
+    match /settings/{id} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    match /memberMail/{id} {
+    // Umfrage zur Tippfete: öffentlich lesbar sind nur die Anzahlen (settings/tippfeteCounts). Eine Stimme darf neu angelegt oder
+    // geändert (k <-> n) werden, und nur zusammen mit der passenden Anpassung am Zähler. Namen/Stimmen auflisten: nur Admins.
+    match /settings/tippfeteCounts {
+      allow update: if request.resource.data.keys().hasOnly(['k', 'n', 'last'])
+        && request.resource.data.last is string
+        && existsAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
+        && ((!exists(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
+          && getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
+              && request.resource.data.k == resource.data.k + 1 && request.resource.data.n == resource.data.n)
+          || (getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
+              && request.resource.data.n == resource.data.n + 1 && request.resource.data.k == resource.data.k))
+          // Änderung einer bestehenden Stimme: eine Stimme wandert von der alten zur neuen Antwort.
+          || (exists(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
+            && get(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
+            && getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
+            && request.resource.data.k == resource.data.k - 1 && request.resource.data.n == resource.data.n + 1)
+          || (exists(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
+            && get(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
+            && getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
+            && request.resource.data.n == resource.data.n - 1 && request.resource.data.k == resource.data.k + 1));
+    }
+    match /tippfeteVotes/{id} {
+      allow get: if true;
+      allow list, delete: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['name', 'antwort', 'at'])
+        && request.resource.data.antwort in ['k', 'n']
+        && request.resource.data.name is string && request.resource.data.name.size() < 80
+        && getAfter(/databases/$(database)/documents/settings/tippfeteCounts).data.last == id;
+      allow update: if request.resource.data.keys().hasOnly(['name', 'antwort', 'at'])
+        && request.resource.data.antwort in ['k', 'n']
+        && request.resource.data.antwort != resource.data.antwort
+        && request.resource.data.name == resource.data.name
+        && getAfter(/databases/$(database)/documents/settings/tippfeteCounts).data.last == id;
+    }
+    // Mitgliederverwaltung: nur Admins.
+    match /members/{id} {
+      allow read, write: if isAdmin();
+    }
+    // Tipper (Mitspieler der Tipprunde): Namen und Haken öffentlich (Auswahlliste im Tippformular); Mailadressen nur für Admins.
+    match /tippers/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /tipperMail/{id} {
       allow read, write: if isAdmin();
     }
 
@@ -36,12 +79,14 @@ service cloud.firestore {
       match /tips/{m} {
         allow get: if true;
         allow list, delete: if isAdmin();
-        // Anlegen und Ändern: Runde offen, Mitglied hat Haken.
+        // Neu anlegen: Runde offen, Mitglied hat Haken. Überschreiben nur, solange der Tipp nicht abgeschickt (locked) ist;
+        // danach schaltet ein Admin ihn in der Mitgliederverwaltung frei.
         allow create: if get(/databases/$(database)/documents/tipping/$(id)).data.open == true
-          && get(/databases/$(database)/documents/members/$(m)).data.aktiv == true
+          && get(/databases/$(database)/documents/tippers/$(m)).data.aktiv == true
           && request.resource.data.keys().hasOnly(['name', 'tips', 'updatedAt', 'locked']);
-        allow update: if get(/databases/$(database)/documents/tipping/$(id)).data.open == true
-          && get(/databases/$(database)/documents/members/$(m)).data.aktiv == true
+        allow update: if resource.data.get('locked', false) != true
+          && get(/databases/$(database)/documents/tipping/$(id)).data.open == true
+          && get(/databases/$(database)/documents/tippers/$(m)).data.aktiv == true
           && request.resource.data.keys().hasOnly(['name', 'tips', 'updatedAt', 'locked']);
         allow update: if isAdmin();
       }
@@ -50,11 +95,11 @@ service cloud.firestore {
     // Excel-Mail (Erweiterung "Trigger Email from Firestore", Sammlung `mail`): nur an die im Admin hinterlegte
     // Adresse eines aktiven Mitglieds, bei dem "Excel per Mail" angehakt ist.
     match /mail/{doc} {
-      allow create: if request.resource.data.keys().hasOnly(['memberId', 'to', 'message'])
+      allow create: if request.resource.data.keys().hasOnly(['tipperId', 'to', 'message'])
         && request.resource.data.to is list && request.resource.data.to.size() == 1
-        && get(/databases/$(database)/documents/members/$(request.resource.data.memberId)).data.sendExcel == true
-        && get(/databases/$(database)/documents/members/$(request.resource.data.memberId)).data.aktiv == true
-        && get(/databases/$(database)/documents/memberMail/$(request.resource.data.memberId)).data.email.lower()
+        && get(/databases/$(database)/documents/tippers/$(request.resource.data.tipperId)).data.sendExcel == true
+        && get(/databases/$(database)/documents/tippers/$(request.resource.data.tipperId)).data.aktiv == true
+        && get(/databases/$(database)/documents/tipperMail/$(request.resource.data.tipperId)).data.email.lower()
            == request.resource.data.to[0].lower();
     }
 
