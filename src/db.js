@@ -148,9 +148,6 @@ export async function getTips(id) {
 export const saveTips = (id, name, tips) =>
   setDoc(doc(db, 'tipping', 'current', 'tips', id), { name, tips, updatedAt: Date.now() });
 
-/** Nur Admins: Tipp zum Überschreiben freigeben. */
-export const unlockTips = (id) => setDoc(doc(db, 'tipping', 'current', 'tips', id), { locked: false }, { merge: true });
-
 /** Nur Admins. */
 export async function listTips() {
   const snap = await getDocs(collection(db, 'tipping', 'current', 'tips'));
