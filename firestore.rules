@@ -30,20 +30,20 @@ service cloud.firestore {
       allow update: if request.resource.data.keys().hasOnly(['k', 'n', 'last'])
         && request.resource.data.last is string
         && existsAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
-        && ((!exists(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
-          && getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
-              && request.resource.data.k == resource.data.k + 1 && request.resource.data.n == resource.data.n)
-          || (getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
-              && request.resource.data.n == resource.data.n + 1 && request.resource.data.k == resource.data.k))
-          // Änderung einer bestehenden Stimme: eine Stimme wandert von der alten zur neuen Antwort.
+        && (
+          // neue Stimme: +1 bei der gewählten Antwort
+          (!exists(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
+            && ((getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
+                  && request.resource.data.k == resource.data.k + 1 && request.resource.data.n == resource.data.n)
+              || (getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
+                  && request.resource.data.n == resource.data.n + 1 && request.resource.data.k == resource.data.k)))
+          // Änderung einer bestehenden Stimme: eine Stimme wandert von der alten zur neuen Antwort
           || (exists(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
-            && get(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
-            && getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
-            && request.resource.data.k == resource.data.k - 1 && request.resource.data.n == resource.data.n + 1)
-          || (exists(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last))
-            && get(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
-            && getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
-            && request.resource.data.n == resource.data.n - 1 && request.resource.data.k == resource.data.k + 1));
+            && ((get(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k' && getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n'
+                  && request.resource.data.k == resource.data.k - 1 && request.resource.data.n == resource.data.n + 1)
+              || (get(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'n' && getAfter(/databases/$(database)/documents/tippfeteVotes/$(request.resource.data.last)).data.antwort == 'k'
+                  && request.resource.data.n == resource.data.n - 1 && request.resource.data.k == resource.data.k + 1)))
+        );
     }
     match /tippfeteVotes/{id} {
       allow get: if true;
