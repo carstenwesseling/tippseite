@@ -1,4 +1,4 @@
-import { getTippfete, getTippfeteCounts, currentMembers, hasVoted, voteTippfete } from '../db.js';
+import { getTippfete, getTippfeteCounts, currentMembers, getVote, voteTippfete } from '../db.js';
 import { $ } from '../util.js';
 import { esc } from '../util.js';
 
@@ -33,7 +33,7 @@ const resultHtml = (c) => {
     <div class="pbar" role="img" aria-label="${c.k} kommen, ${c.n} kommen nicht"><i style="width:${c.k / total * 100}%"></i><i style="width:${c.n / total * 100}%"></i></div>`;
 };
 
-/** Umfrage: Name wählen, Komme / Komme nicht, einmal abstimmen. Angezeigt werden nur Anzahlen. */
+/** Umfrage: Name wählen, Komme / Komme nicht. Die Antwort lässt sich ändern: Name erneut wählen zeigt die bisherige Antwort. */
 async function renderPoll(open) {
   const el = $('#poll');
   let counts, names;
@@ -43,31 +43,35 @@ async function renderPoll(open) {
       <select id="pn"><option value="">Bitte wählen</option>${names.map((n) => `<option>${esc(n)}</option>`).join('')}</select>
       <div class="seg pseg"><button type="button" class="k" data-a="k" aria-pressed="false">Komme</button><button type="button" class="n" data-a="n" aria-pressed="false">Komme nicht</button></div>
       <button type="button" id="pgo" disabled>Abstimmen</button>
-      <p class="muted pnote">Du kannst nur einmal abstimmen, danach ist die Antwort nicht mehr änderbar.</p><div id="pmsg"></div></div>` : '';
+      <p class="muted pnote">Du kannst deine Antwort später ändern: Name erneut wählen.</p><div id="pmsg"></div></div>` : '';
   el.innerHTML = `<div class="card pcard"><h3>Kommst du zur Tippfete?</h3>${form}<div id="pres">${resultHtml(counts)}</div></div>`;
   if (!form) return;
-  let answer = null;
-  const upd = () => { $('#pgo').disabled = !($('#pn').value && answer); };
+  let answer = null, saved = null; // saved: bereits gespeicherte Antwort des gewählten Namens
+  const mark = () => el.querySelectorAll('[data-a]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.a === answer));
+  const upd = () => { $('#pgo').disabled = !($('#pn').value && answer && answer !== saved); $('#pgo').textContent = saved ? 'Antwort ändern' : 'Abstimmen'; };
   $('#pn').addEventListener('change', async () => {
     $('#pmsg').innerHTML = '';
-    upd();
-    if ($('#pn').value && await hasVoted($('#pn').value).catch(() => false)) {
-      $('#pmsg').innerHTML = '<div class="msg warn">Für diesen Namen wurde schon abgestimmt. Die Antwort kann nicht mehr geändert werden.</div>';
-      $('#pgo').disabled = true;
+    answer = saved = null; mark(); upd();
+    const name = $('#pn').value;
+    if (!name) return;
+    const v = await getVote(name).catch(() => null);
+    if ($('#pn').value !== name) return; // zwischenzeitlich anderer Name gewählt
+    if (v) {
+      saved = answer = v; mark();
+      $('#pmsg').innerHTML = `<div class="msg ok">Bisherige Antwort: ${v === 'k' ? 'Komme' : 'Komme nicht'}. Du kannst sie ändern.</div>`;
     }
+    upd();
   });
-  el.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
-    answer = b.dataset.a;
-    el.querySelectorAll('[data-a]').forEach((x) => x.setAttribute('aria-pressed', x === b));
-    if (!$('#pmsg').textContent) upd();
-  }));
+  el.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => { answer = b.dataset.a; mark(); upd(); }));
   $('#pgo').addEventListener('click', async () => {
     const name = $('#pn').value;
     $('#pgo').disabled = true;
     try {
       await voteTippfete(name, answer);
-      el.querySelector('.pform').innerHTML = `<div class="msg ok">Danke ${esc(name)}, ${answer === 'k' ? 'du kommst' : 'deine Absage'} ist gespeichert.</div>`;
+      saved = answer;
+      $('#pmsg').innerHTML = `<div class="msg ok">Danke ${esc(name)}, ${answer === 'k' ? 'du kommst' : 'deine Absage'} ist gespeichert. Du kannst sie später ändern.</div>`;
       $('#pres').innerHTML = resultHtml(await getTippfeteCounts());
+      upd();
     } catch (e) {
       const denied = /permission/i.test(`${e?.code} ${e?.message}`);
       $('#pmsg').innerHTML = `<div class="msg err">${denied ? 'Die Abstimmung ist gerade nicht möglich.' : esc(e.message)}</div>`;
