@@ -1,9 +1,9 @@
-import { getRound, getSeasonMatches, listRounds } from '../db.js';
+import { listRounds } from '../db.js';
 import { buildTable } from '../scoring.js';
 import { resolveResults } from './table.js';
 import { esc } from '../util.js';
 import { normName, samePerson } from '../halbserie.js';
-import { computeOverview } from '../overview.js';
+import { computeOverview, getRoundCached, getSeasonCached } from '../overview.js';
 import { pointsCardHtml } from './punkte.js';
 
 const fmt = (n) => n.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -11,15 +11,14 @@ const fmt = (n) => n.toLocaleString('de-DE', { minimumFractionDigits: 1, maximum
 /** Ewige Bestenliste: Gesamtpunkte und Schnitt je Teilnahme (Halbserie) über alle Halbserien. */
 export async function renderBestenliste(app, session) {
   const rounds = await listRounds();
-  const seasons = new Map();
-  const loadSeason = (jahr) => {
-    if (!seasons.has(jahr)) seasons.set(jahr, getSeasonMatches(jahr, { canWrite: session.isAdmin }).catch(() => null));
-    return seasons.get(jahr);
-  };
-  const full = await Promise.all(rounds.map((r) => getRound(r.id)));
+  // Alle Halbserien und Saisons gleichzeitig laden (statt Jahr für Jahr nacheinander).
+  const loaded = await Promise.all(rounds.map(async (meta) => {
+    const [round, api] = await Promise.all([getRoundCached(meta), getSeasonCached(meta.jahr, { canWrite: session.isAdmin })]);
+    return { round, api };
+  }));
   const played = []; // { liga, rows } je Halbserie
-  for (const round of full.filter(Boolean)) {
-    const api = await loadSeason(round.jahr);
+  for (const { round, api } of loaded) {
+    if (!round) continue;
     const { spieltage, results, matches } = resolveResults(round, api?.matches, { completeDaysOnly: true });
     if (!matches.every((m) => m.finished)) continue; // nur abgeschlossene Halbserien
     played.push({ liga: round.liga ?? null, jahr: round.jahr, rows: buildTable(round.players, results, spieltage) });

@@ -2,6 +2,7 @@ import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase.js';
+import { clearCache } from './cache.js';
 import { fetchSeason } from './openliga.js';
 import { roundCode, compareRounds, normName, samePerson, isPlaceholder } from './halbserie.js';
 
@@ -53,6 +54,7 @@ export async function getRound(id) {
 
 /** Speichert eine Halbserie samt Spielern (Batches à max. 400 Schreibvorgänge). */
 export async function saveRound({ jahr, typ, order, excelResults, players, kind, liga, spieltage, totalsOnly }) {
+  clearCache();
   const ref = doc(collection(db, 'rounds'));
   await setDoc(ref, {
     title: roundCode({ jahr, typ, liga }), jahr, typ, order: order ?? [], excelResults: excelResults ?? [],
@@ -81,6 +83,7 @@ async function writePlayers(roundId, players) {
  * @returns {Promise<{updated:number, unmatched:string[]}>}
  */
 export async function addStatsToRound(roundId, rows, alias = {}) {
+  clearCache();
   const snap = await getDocs(collection(db, 'rounds', roundId, 'players'));
   const byName = new Map(snap.docs.map((d) => [normName(samePerson(d.data().name)), d.ref]));
   const ops = [];
@@ -107,6 +110,7 @@ export async function addStatsToRound(roundId, rows, alias = {}) {
  * Gleichnamige Mitspieler werden überschrieben. Spielplan/Fallback-Ergebnisse werden nur ergänzt, wenn leer.
  */
 export async function addPlayersToRound(roundId, { players, order, excelResults }) {
+  clearCache();
   const ref = doc(db, 'rounds', roundId);
   const round = await getDoc(ref);
   if (!round.exists()) throw new Error('Halbserie nicht gefunden.');
@@ -121,6 +125,7 @@ export async function addPlayersToRound(roundId, { players, order, excelResults 
 }
 
 export async function deleteRound(id) {
+  clearCache();
   const ps = await getDocs(collection(db, 'rounds', id, 'players'));
   for (let i = 0; i < ps.docs.length; i += 400) {
     const batch = writeBatch(db);
@@ -135,6 +140,7 @@ export async function deleteRound(id) {
  * Admin-Einträge bleiben erhalten. Gibt die Anzahl gelöschter Halbserien/Mitglieder zurück.
  */
 export async function deleteAllData() {
+  clearCache();
   const rounds = await listRounds();
   for (const r of rounds) await deleteRound(r.id);
   const members = await getDocs(collection(db, 'members'));
@@ -166,7 +172,7 @@ export async function getSeasonMatches(jahr, { canWrite = false, force = false, 
   try {
     const matches = await fetchSeason(jahr);
     const fresh = { matches, updatedAt: Date.now() };
-    if (canWrite) await setDoc(ref, fresh);
+    if (canWrite) { clearCache(); await setDoc(ref, fresh); }
     return { ...fresh, source: 'live' };
   } catch (e) {
     if (cached) return { ...cached, source: 'cache (API nicht erreichbar)', error: e.message };
