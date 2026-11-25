@@ -352,3 +352,64 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--ink); }
 .hb-t i { display: block; height: 100%; background: var(--pitch); border-radius: 3px; }
 .hb-r b { font-variant-numeric: tabular-nums; font-weight: 600; }
 .hb-r:hover .hb-n { color: var(--ink); }
+
+/* Tabelle: Spieltagswerte führen zu den Spielen dahinter */
+.wrap td.day:has(a.dl) { padding: 0; }
+.wrap td a.dl { display: block; min-width: 100%; padding: 0 8px; line-height: 40px; color: inherit; text-decoration: underline dotted var(--bar); text-underline-offset: 4px; }
+.wrap td a.dl:hover { background: var(--pitch); color: var(--pitch-ink); text-decoration: none; }
+@media (max-width: 600px) { .wrap td a.dl { padding: 0 6px; } }
+.hint b { color: var(--ink); font-weight: 600; }
+
+/* Seite "Spiele hinter den Punkten": Tipp neben dem echten Ergebnis */
+.sp { max-width: 760px; margin: 0 auto; padding-inline: max(16px, env(safe-area-inset-left, 0px)); }
+.sp-hero { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; align-items: end; padding-block: 6px 12px; }
+.sp-hero .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sp-hero h2 { margin: 0; font: 700 34px/1 var(--display); text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere; }
+.sp-hero .rank { font: 700 15px/1 var(--display); background: var(--pitch); color: var(--pitch-ink); border-radius: 4px; padding: 3px 6px; flex: none; }
+.sp-hero .what { grid-column: 1; color: var(--muted); font-size: 14px; }
+.sp-hero .big { grid-row: 1 / span 2; grid-column: 2; text-align: right; font: 700 64px/.85 var(--display); color: var(--pitch); }
+.sp-hero .big small { display: block; margin-top: 4px; font: 500 12px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.sp-formula { margin: 0 0 12px; padding: 8px 12px; background: var(--pitch-soft); border-radius: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.sp-formula b { font-weight: 600; }
+.sp-steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 34px; margin-bottom: 12px; }
+.sp-steps .grp { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.sp-steps .grp a, .sp-steps .grp span { padding: 6px 11px; font-size: 13px; font-weight: 500; }
+.sp-steps .grp a:hover { background: var(--pitch-soft); }
+.sp-steps .grp .na { color: var(--line); }
+.sp-steps .grp .mid { border-inline: 1px solid var(--line); font-weight: 600; min-width: 100px; text-align: center; }
+.sp-steps .grp > :first-child { border-radius: 7px 0 0 7px; } .sp-steps .grp > :last-child { border-radius: 0 7px 7px 0; }
+.sp-tgl { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; border: 0 !important; background: none !important; padding: 4px 0; font-size: 13px; color: var(--muted); }
+.sp-tgl i { width: 30px; height: 18px; border-radius: 9px; background: var(--line); position: relative; transition: background .15s; flex: none; }
+.sp-tgl i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); transition: transform .15s; box-shadow: 0 0 0 1px #0002; }
+.sp-tgl[aria-pressed="true"] { color: var(--ink); } .sp-tgl[aria-pressed="true"] i { background: var(--pitch); } .sp-tgl[aria-pressed="true"] i::after { transform: translateX(12px); }
+@media (prefers-reduced-motion: reduce) { .sp-tgl i, .sp-tgl i::after { transition: none; } }
+.sp-dh { display: flex; align-items: baseline; justify-content: space-between; margin: 14px 0 6px; padding-inline: 2px; }
+.sp-dh a { font: 700 20px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; } .sp-dh a:hover { color: var(--pitch); }
+.sp-dh span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; } .sp-dh span b { color: var(--ink); font-weight: 700; font-size: 15px; }
+.sp-ms { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.sp-mh, .sp-m { display: grid; grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr) 34px 30px; align-items: center; gap: 0 4px; padding: 0 8px; }
+.sp-mh { height: 26px; background: var(--bg); border-bottom: 1px solid var(--line); font: 600 10.5px/1 var(--text); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.sp-mh span, .sp-m > span { text-align: center; }
+.sp-m { min-height: 46px; border-bottom: 1px solid var(--line); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.sp-m:last-child { border-bottom: 0; }
+.sp-m .h { text-align: right; } .sp-m .a { text-align: left; } .sp-m .h, .sp-m .a { font-weight: 500; overflow-wrap: anywhere; }
+.sp-m .res { font: 700 18px/1 var(--display); letter-spacing: .02em; background: var(--bg); border-radius: 4px; padding: 5px 0; }
+.sp-m .sp-tip { color: var(--muted); font-weight: 500; }
+/* alle Punkte-Blasen gleich groß (2, 1 und 0) */
+.sp-pt { justify-self: center; display: block; width: 26px; padding: 3px 0; border-radius: 12px; text-align: center; font-size: 12px; font-weight: 600; background: var(--bg); color: var(--muted); }
+.sp-pt .lb { display: none; font-style: normal; }
+.sp-m.p2 { background: var(--pitch-soft); } .sp-m.p2 .tip { color: var(--ink); font-weight: 700; }
+.sp-m.p2 .sp-pt { background: var(--pitch); color: var(--pitch-ink); }
+.sp-m.p1 .sp-pt { background: var(--pitch-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--pitch); }
+.sp-m.p0 .h, .sp-m.p0 .a { color: var(--muted); font-weight: 400; }
+.sp-m.px .h, .sp-m.px .a, .sp-m.px .res { color: var(--muted); }
+.sp-pt.off { font-weight: 500; }
+@media (min-width: 560px) {
+  .sp-mh, .sp-m { grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr) 48px 96px; gap: 0 6px; padding: 0 12px; font-size: 14.5px; }
+  .sp-pt { width: 88px; } .sp-pt .lb { display: inline; }
+}
+.sp-more { margin: 6px 2px 0; font-size: 12.5px; color: var(--muted); }
+.sp-pn { display: flex; justify-content: space-between; gap: 8px; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; font-weight: 500; }
+.sp-pn a { padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; } .sp-pn a:hover { border-color: var(--pitch); }
+.sp-pn .na { visibility: hidden; } .sp-pn .lbl { align-self: center; color: var(--muted); font-size: 12.5px; }
+@media (max-width: 420px) { .sp-hero h2 { font-size: 28px; } .sp-hero .big { font-size: 54px; } }

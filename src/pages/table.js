@@ -3,6 +3,7 @@ import { buildTable } from '../scoring.js';
 import { esc, $ } from '../util.js';
 import { roundLabel, compareRounds } from '../halbserie.js';
 import { matchState, currentSpieltag, needsPolling } from '../openliga.js';
+import { hasTips, spieleHref } from './spiele.js';
 
 /** Ergebnisse + Spieltage einer Halbserie aus API-Spielen ableiten (Fallback: Ergebnisse aus der Excel-Datei). */
 export function resolveResults(round, apiMatches, { live = false, completeDaysOnly = false } = {}) {
@@ -83,6 +84,7 @@ export async function renderTable(app, session, id) {
   const lastPlayed = played.size ? Math.max(...played) : null;
   const dayMax = Object.fromEntries(spieltage.map((d) => [d, played.has(d) ? Math.max(0, ...table.map((r) => r.perDay[d] ?? 0)) : -1]));
   const max = Math.max(1, ...Object.values(dayMax));
+  const tipsOf = (name) => hasTips(round, round.players.find((p) => p.name === name));
   const val = (r, d) => (played.has(d) ? (r.perDay[d] ?? 0) : null);
   // Alleiniger Spieltagssieger (nur ein Spieler mit der Höchstzahl) an einem abgeschlossenen Spieltag
   const dayDone = (d) => !(matches ?? []).some((m) => m.spieltag === d && !m.finished);
@@ -120,7 +122,7 @@ export async function renderTable(app, session, id) {
   const tableHtml = () => `<table><thead><tr>${th('rank', '#', 'c1')}${th('name', 'Name', 'c2')}${spieltage.map((d) => th(`d${d}`, d, `day${d === cur ? ' cur' : ''}`)).join('')}
     ${th('zwei', '2er', 'stat sep')}${th('eins', '1er', 'stat')}${th('total', 'Pkt', 'ct')}</tr></thead><tbody>${sortedRows().map((r) => `
     <tr class="${r.rank <= 3 ? 'top' : ''} ${isMe(session, r.name) ? 'me' : ''}"><td class="c1"><span class="rk">${r.rank}</span></td><td class="c2">${esc(r.name)}</td>
-    ${spieltage.map((d) => { const v = val(r, d); const c = d === cur ? ' cur' : ''; return v == null ? `<td class="day pend${c}">${r.totalOnly ? '-' : '·'}</td>` : `<td class="day ${isSolo(v, d) ? 'solo' : isBest(v, d) ? 'best' : ''}${c}">${v}</td>`; }).join('')}
+    ${spieltage.map((d) => { const v = val(r, d); const c = d === cur ? ' cur' : ''; return v == null ? `<td class="day pend${c}">${r.totalOnly ? '-' : '·'}</td>` : `<td class="day ${isSolo(v, d) ? 'solo' : isBest(v, d) ? 'best' : ''}${c}">${tipsOf(r.name) ? `<a class="dl" href="${spieleHref(id, r.name, d)}" aria-label="${esc(r.name)}, Spieltag ${d}: ${v} Punkte, Spiele anzeigen">${v}</a>` : v}</td>`; }).join('')}
     <td class="stat sep">${r.zwei ?? '–'}</td><td class="stat">${r.eins ?? '–'}</td><td class="ct">${r.total}</td></tr>`).join('')}</tbody></table>`;
 
   const listHtml = table.map((r) => {
@@ -156,7 +158,7 @@ export async function renderTable(app, session, id) {
     </div>
     <section class="view" id="tabelle" aria-label="Tabelle">
       <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar">${tableHtml()}</div>
-      <div class="gut hint"><span><i></i>Tagesbester</span><span><i class="solokey"></i>Alleiniger Spieltagssieger</span>${cur !== null ? `<span><i class="curkey"></i>Spieltag ${cur} läuft – Punkte vorläufig, Aktualisierung jede Minute</span>` : ''}<span>Seitlich wischen für alle Spieltage</span></div>
+      <div class="gut hint"><span><i></i>Tagesbester</span><span><i class="solokey"></i>Alleiniger Spieltagssieger</span>${cur !== null ? `<span><i class="curkey"></i>Spieltag ${cur} läuft – Punkte vorläufig, Aktualisierung jede Minute</span>` : ''}<span>Seitlich wischen für alle Spieltage</span>${round.kind !== 'chronik' ? '<span><b>Auf einen Spieltagswert tippen</b> zeigt die Spiele dahinter: Tipp und Ergebnis</span>' : ''}</div>
     </section>
     <section class="view" id="liste" aria-label="Liste" hidden><div class="list" id="list">${listHtml}</div></section>
     <div class="gut foot">${esc(info)} · Quelle: ${esc(source)}</div>`;
