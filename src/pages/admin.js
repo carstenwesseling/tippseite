@@ -4,9 +4,12 @@ import { parseChronik, renameChronik } from '../chronik.js';
 import { fetchTeams } from '../openliga.js';
 import { BUNDESLIGA_FALLBACK } from '../teams.js';
 import {
-  saveRound, addPlayersToRound, addStatsToRound, deleteRound, deleteAllData, listRounds, getSeasonMatches, ensureMembers, listMembers, memberNames,
+  saveRound, getRound, addPlayersToRound, addStatsToRound, deleteRound, deleteAllData, listRounds, getSeasonMatches, ensureMembers, listMembers, memberNames,
 } from '../db.js';
 import { detectHalbserie, nameFromFilename, roundCode, roundLabel, sameHalbserie, seasonShort, normName } from '../halbserie.js';
+import { buildTable } from '../scoring.js';
+import { resolveResults } from './table.js';
+import { buildTablePdf } from '../pdf.js';
 import { esc, $ } from '../util.js';
 
 /** Zugriffsschutz für alle Verwaltungsseiten. Gibt true zurück, wenn der Nutzer Admin ist. */
@@ -57,6 +60,7 @@ export async function renderAdmin(app, session, flash = '') {
     <div class="card"><h3>Vorhandene Halbserien</h3>
       ${rounds.map((r) => `<div class="row${r.liga === 2 ? ' liga2' : ''}"><a href="#/runde/${esc(r.id)}">${esc(roundLabel(r))} · ${r.playerCount} Mitspieler</a>
         <button data-del="${esc(r.id)}">Löschen</button></div>`).join('') || '<span class="muted">Keine</span>'}
+      <div class="row"><button id="pdf"${rounds.length ? '' : ' disabled'}>Aktuelle Halbserie als PDF</button><span id="pdfmsg" class="muted"></span></div>
       <div class="row"><button id="refresh">Ergebnisse von OpenLigaDB jetzt aktualisieren</button><span id="refmsg" class="muted"></span></div>
     </div>
     ${session.isOwner ? `<div class="card"><h3>Alle Daten löschen</h3>
@@ -394,6 +398,21 @@ export async function renderAdmin(app, session, flash = '') {
   });
   }
 
+  $('#pdf').addEventListener('click', async () => {
+    const r = rounds[0]; // aktuellste Halbserie
+    $('#pdfmsg').textContent = 'Erzeuge PDF …';
+    try {
+      const [round, api] = await Promise.all([getRound(r.id), getSeasonMatches(r.jahr, { canWrite: true })]);
+      const { spieltage, results } = resolveResults(round, api.matches);
+      const blob = await buildTablePdf(buildTable(round.players, results, spieltage), spieltage, roundLabel(r));
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Tabelle_${roundCode(r)}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      $('#pdfmsg').textContent = '';
+    } catch (e) { $('#pdfmsg').innerHTML = `<span class="msg err">${esc(e.message)}</span>`; }
+  });
   $('#refresh').addEventListener('click', async () => {
     $('#refmsg').textContent = 'Lade …';
     try {
