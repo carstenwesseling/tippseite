@@ -28,10 +28,9 @@ export async function renderMembers(app, session, flash = '') {
       <div class="row">
         <input id="newname" placeholder="Neues Mitglied, z. B. Meier,H." />
         <button id="add">Hinzufügen</button>
-        <button id="sync">Aus allen Halbserien übernehmen</button>
       </div>
       <div class="muted">Neue Namen aus Excel-Uploads werden automatisch ergänzt. Zelle = Punkte (Rang) in der Halbserie.</div>
-      <div id="matwrap">${members.length ? '' : '<div class="msg">Noch keine Mitglieder. Lade eine Excel-Datei hoch oder übernimm sie aus vorhandenen Halbserien.</div>'}</div>
+      <div id="matwrap">${members.length ? '' : '<div class="msg">Noch keine Mitglieder. Lade eine Excel-Datei hoch.</div>'}</div>
     </div>`;
 
   // Sortierbare Tabelle: Klick auf die Spaltenüberschrift sortiert, nochmaliger Klick kehrt die Richtung um.
@@ -71,13 +70,6 @@ export async function renderMembers(app, session, flash = '') {
     renderMembers(app, session, added.length
       ? `<div class="msg ok">„${esc(name)}“ hinzugefügt.</div>`
       : `<div class="msg warn">„${esc(name)}“ gibt es schon.</div>`);
-  });
-  $('#sync').addEventListener('click', async () => {
-    const names = overview.flatMap((o) => o.round.players.map((p) => p.name));
-    const added = await ensureMembers(names);
-    renderMembers(app, session, `<div class="msg ok">${added.length
-      ? `${added.length} neue Mitglieder übernommen: ${added.map(esc).join('; ')}.`
-      : 'Alle Mitspieler sind schon Mitglieder.'}</div>`);
   });
 }
 

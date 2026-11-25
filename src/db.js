@@ -8,13 +8,34 @@ import { roundCode, compareRounds, normName, samePerson, isPlaceholder } from '.
 const STALE_MS = 15 * 60 * 1000;
 
 // ---- Admin ----
-export async function checkAdmin(user) {
-  if (!user?.email) return false;
+/** Admin-Eintrag des Nutzers: null = kein Admin; sonst { owner, name }. Ein Eintrag mit `delegate: true` ist der zusätzliche Admin. */
+export async function getAdminInfo(user) {
+  if (!user?.email) return null;
   try {
-    return (await getDoc(doc(db, 'admins', user.email.toLowerCase()))).exists();
+    const s = await getDoc(doc(db, 'admins', user.email.toLowerCase()));
+    return s.exists() ? { owner: !s.data().delegate, name: s.data().name ?? '' } : null;
   } catch {
-    return false;
+    return null;
   }
+}
+export const checkAdmin = async (user) => Boolean(await getAdminInfo(user));
+
+// settings/delegate: { name, email } öffentlich lesbar (Name erscheint beim Anmelden); admins/<email>: { delegate: true, name }.
+const DELEGATE = () => doc(db, 'settings', 'delegate');
+export async function getDelegate() {
+  const s = await getDoc(DELEGATE());
+  return s.exists() && s.data().name ? s.data() : null;
+}
+export async function saveDelegate({ name, email }) {
+  const old = await getDelegate();
+  await setDoc(doc(db, 'admins', email), { delegate: true, name });
+  await setDoc(DELEGATE(), { name, email });
+  if (old?.email && old.email !== email) await deleteDoc(doc(db, 'admins', old.email));
+}
+export async function removeDelegate() {
+  const old = await getDelegate();
+  if (old?.email) await deleteDoc(doc(db, 'admins', old.email));
+  await deleteDoc(DELEGATE());
 }
 
 // ---- Halbserien ----
