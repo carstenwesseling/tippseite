@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Spiele hinter den Punkten, Vorschlag A: Anstoß</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="spieltag-base.css">
+<style>
+/* Vorschlag A "Anstoß": eigene Seite, hell und ruhig wie die Tabelle. Oben der Wert mit Rechnung, darunter pro Spieltag eine Tabelle
+   Heim – Ergebnis – Gast | Tipp | Punkte. Treffer sind farbig, Nullnummern grau. */
+.pg { max-width: 760px; margin: 0 auto; }
+.back { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; font-weight: 500; font-size: 14px; color: var(--muted); }
+.back:hover { color: var(--ink); }
+.hero { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; align-items: end; padding-block: 6px 12px; }
+.hero .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hero h2 { margin: 0; font: 700 34px/1 var(--display); text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere; }
+.hero .rank { font: 700 15px/1 var(--display); background: var(--pitch); color: var(--pitch-ink); border-radius: 4px; padding: 3px 6px; flex: none; }
+.hero .what { grid-column: 1; color: var(--muted); font-size: 14px; }
+.hero .big { grid-row: 1 / span 2; grid-column: 2; text-align: right; font: 700 64px/.85 var(--display); color: var(--pitch); }
+.hero .big small { display: block; margin-top: 4px; font: 500 12px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.formula { margin: 0 0 12px; padding: 8px 12px; background: var(--pitch-soft); border-radius: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.formula b { font-weight: 600; }
+.steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.steps .grp { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.steps .grp a, .steps .grp span { padding: 6px 11px; font-size: 13px; font-weight: 500; }
+.steps .grp a { color: var(--ink); } .steps .grp a:hover { background: var(--pitch-soft); }
+.steps .grp .na { color: var(--line); }
+.steps .grp .mid { border-inline: 1px solid var(--line); font-weight: 600; min-width: 92px; text-align: center; }
+.steps .grp > :first-child { border-radius: 7px 0 0 7px; } .steps .grp > :last-child { border-radius: 0 7px 7px 0; }
+.tabs { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.tabs a { padding: 4px 11px; border-radius: 6px; font-weight: 500; font-size: 13px; color: var(--muted); }
+.tabs a b { font-weight: 600; margin-left: 4px; }
+.tabs a[aria-current] { background: var(--pitch); color: var(--pitch-ink); }
+.tgl { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+.tgl i { width: 30px; height: 18px; border-radius: 9px; background: var(--line); position: relative; transition: background .15s; }
+.tgl i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); transition: transform .15s; box-shadow: 0 0 0 1px #0002; }
+.tgl[aria-pressed="true"] i { background: var(--pitch); } .tgl[aria-pressed="true"] i::after { transform: translateX(12px); }
+
+.day-h { display: flex; align-items: baseline; justify-content: space-between; margin: 14px 0 6px; padding-inline: 2px; }
+.day-h a { font: 700 20px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.day-h a:hover { color: var(--pitch); }
+.day-h span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day-h span b { color: var(--ink); font-weight: 700; font-size: 15px; }
+.ms { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.mh, .m { display: grid; grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr) 40px 54px; align-items: center; gap: 0 6px; padding: 0 12px; }
+.mh { height: 26px; background: var(--bg); border-bottom: 1px solid var(--line); font: 600 10.5px/1 var(--text); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.mh span, .m > span { text-align: center; }
+.m { min-height: 46px; border-bottom: 1px solid var(--line); font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.m:last-child { border-bottom: 0; }
+.m .h { text-align: right; } .m .a { text-align: left; }
+.m .h, .m .a { font-weight: 500; overflow-wrap: anywhere; }
+.m .res { font: 700 18px/1 var(--display); letter-spacing: .02em; background: var(--bg); border-radius: 4px; padding: 5px 0; }
+.m .tip { color: var(--muted); font-weight: 500; }
+.m .pt { justify-self: center; min-width: 40px; text-align: center; padding: 3px 6px; border-radius: 12px; font-size: 12px; font-weight: 600; background: var(--bg); color: var(--muted); }
+.m .pt .lb { display: none; font-style: normal; }
+@media (min-width: 560px) { .mh, .m { grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr) 48px 96px; } .m .pt .lb { display: inline; } }
+.m.p2 { background: var(--pitch-soft); } .m.p2 .tip { color: var(--ink); font-weight: 700; }
+.m.p2 .pt { background: var(--pitch); color: var(--pitch-ink); }
+.m.p1 .pt { background: var(--pitch-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--pitch); }
+.m.p0 .h, .m.p0 .a { color: var(--muted); font-weight: 400; }
+.more { margin: 6px 2px 0; font-size: 12.5px; color: var(--muted); }
+.pn { display: flex; justify-content: space-between; gap: 8px; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; font-weight: 500; }
+.pn a { padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; } .pn a:hover { border-color: var(--pitch); }
+.pn .na { visibility: hidden; }
+@media (max-width: 420px) { .hero h2 { font-size: 28px; } .hero .big { font-size: 54px; } .mh, .m { padding: 0 8px; gap: 0 4px; grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr) 34px 30px; font-size: 13.5px; } .m .pt { min-width: 0; width: 24px; padding: 3px 0; } }
+</style>
+</head>
+<body>
+<header class="bar"><div class="gut"><div class="bar-in">
+  <a class="brand" href="index.html"><i></i>Tippspiel</a>
+  <nav><a href="#/" aria-current="page">Halbserien</a><a href="#/">Bestenliste</a><a href="#/">Tippen</a></nav>
+  <span class="avatar">CW</span>
+</div></div></header>
+<div class="vs"><div class="gut"><span>Vorschlag:</span><a href="spieltag-a.html" aria-current="page">A Anstoß</a><a href="spieltag-b.html">B Spielfeld</a><a href="spieltag-c.html">C Matchday</a><a href="index.html">← alle Entwürfe</a></div></div>
+<main>
+  <section id="tablesec">
+    <div class="gut head"><div><h1>Rückrunde 25/26</h1><div class="meta" id="roundmeta"></div></div></div>
+    <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar"></div>
+    <div class="gut hint"><span><b>Auf eine Zahl tippen</b> zeigt die Spiele dahinter: Tipp und echtes Ergebnis.</span><span>Name = alle Spiele des Spielers.</span></div>
+  </section>
+  <section id="detail" class="gut" hidden></section>
+</main>
+<script>
+window.SB_UI = {
+  mode: 'page',
+  render(c) {
+    const { esc, sc } = window.SB;
+    const grp = (g) => `<div class="day-h"><a href="${SB.href(c.name, 'd' + g.day)}" title="Ganzen Spieltag ansehen">Spieltag ${g.day}</a>
+        <span>${g.best && c.ty !== 'd' ? '★ Tagesbester · ' : ''}<b>${g.sum}</b> Pkt</span></div>
+      <div class="ms"><div class="mh" aria-hidden="true"><span style="text-align:right">Heim</span><span>Erg.</span><span style="text-align:left">Gast</span><span>Tipp</span><span>Pkt</span></div>
+      ${g.rows.map((r) => `<div class="m p${r.pts}"><span class="h">${esc(r.m.home)}</span><span class="res" aria-label="Ergebnis">${sc(r.res)}</span><span class="a">${esc(r.m.away)}</span>
+        <span class="tip" aria-label="Tipp">${sc(r.tip)}</span><span class="pt">${r.pts}<i class="lb">${r.pts === 2 ? ' exakt' : r.pts === 1 ? ' Tendenz' : ''}</i></span></div>`).join('')}</div>
+      ${g.hidden ? `<div class="more">+ ${g.hidden} ${g.hidden === 1 ? 'Spiel' : 'Spiele'} ohne Punkte</div>` : ''}`;
+    const nav = (x, dir) => x ? `<a href="${x.href}">${dir < 0 ? '← ' : ''}${esc(x.name ?? 'Spieltag ' + x.day)}${dir > 0 ? ' →' : ''}</a>` : `<a class="na" aria-hidden="true">–</a>`;
+    return `<div class="pg"><a class="back" href="#/" data-act="close">← Zur Tabelle</a>
+      <div class="hero"><div class="who"><h2>${esc(c.name)}</h2><span class="rank" title="Platz in der Tabelle">Platz ${c.p.rank}</span></div>
+        <div class="what">${esc(c.label)}${c.isBest ? ' · ★ Tagesbester' : ''}</div>
+        <div class="big num">${c.value}<small>${c.unit}</small></div></div>
+      <p class="formula"><b>So entsteht der Wert:</b> ${c.formula}${c.ty === 'total' || c.ty === 'd' ? ` <span style="color:var(--muted)">(${c.cnt.n} Spiele ohne Punkte)</span>` : ''}</p>
+      <div class="steps"><div class="tabs" role="tablist" aria-label="Wert wählen">${c.tabs.map((t) => `<a href="${t.href}" ${t.active ? 'aria-current="true"' : ''}>${t.label}<b>${t.n}</b></a>`).join('')}</div>
+        ${c.canToggle ? `<button class="tgl" data-act="only" aria-pressed="${c.only}"><i></i>nur Treffer</button>` : ''}</div>
+      ${c.groups.map(grp).join('')}
+      <p class="more" style="margin-top:12px">Punkte: <b>2</b> exakt · <b>1</b> richtige Tendenz · <b>0</b> daneben</p>
+      <div class="pn">${nav(c.prevP, -1)}<span style="align-self:center;color:var(--muted);font-size:12.5px">Spieler</span>${nav(c.nextP, 1)}</div>
+      ${c.dayNo ? `<div class="pn" style="border:0;margin-top:8px;padding-top:0">${nav(c.prevD, -1)}<span style="align-self:center;color:var(--muted);font-size:12.5px">Spieltag</span>${nav(c.nextD, 1)}</div>` : ''}
+    </div>`;
+  },
+};
+</script>
+<script src="spieltag.js"></script>
+</body>
+</html>
