@@ -1,10 +1,11 @@
 // Verwaltung, Reiter "Tippen": Tipprunde (kommende Halbserie) und Tipper (Haken "tippt mit", Excel per Mail, neue Mitglieder).
 import {
-  listTippers, listTipperMails, listMembers, saveTippers, unlockTips, tipperId, listRounds, getRound, ensureMembers,
+  listTippers, listTipperMails, listMembers, tippingRoundPlayers, saveTippers, unlockTips, tipperId, listRounds, getRound, ensureMembers,
   getTipping, openTipping, setTippingOpen, listTips, deleteTipping, tippingToRound,
 } from '../db.js';
 import { adminGate, adminNav } from './admin.js';
 import { normName } from '../halbserie.js';
+import { tipStatus } from '../tipstatus.js';
 import { esc, $ } from '../util.js';
 
 const byName = (a, b) => a.name.localeCompare(b.name, 'de');
@@ -28,9 +29,13 @@ async function renderMembersInner(host) {
   const latest = rounds.length ? await getRound(rounds[0].id) : null;
   const current = new Set((latest?.players ?? []).map((p) => tipperId(p.name)));
   const tipCount = new Map();
+  const tipsOf = new Map(); // Tipps je Mitspieler aus der Tipprunde
   const lockedTips = new Set(); // abgeschickte (gesperrte) Tipps
-  if (tipping) (await listTips().catch(() => [])).forEach((t) => { tipCount.set(t.id, Object.keys(t.tips ?? {}).length); if (t.locked) lockedTips.add(t.id); });
+  if (tipping) (await listTips().catch(() => [])).forEach((t) => { tipsOf.set(t.id, t.tips ?? {}); tipCount.set(t.id, Object.keys(t.tips ?? {}).length); if (t.locked) lockedTips.add(t.id); });
 
+  // Gültige Tipps: abgeschickte Tipps der Tipprunde ODER Tipps der Halbserie in der Datenbank (z. B. per Excel eingelesen)
+  const roundPlayers = tipping ? await tippingRoundPlayers(tipping).catch(() => []) : [];
+  const statusOf = (m) => tipping ? tipStatus({ name: m.name, tippingTips: tipsOf.get(m.id), roundPlayers, order: tipping.order }) : null;
   const rows = saved.map((m) => ({ id: m.id, name: m.name, aktiv: m.aktiv, sendExcel: !!m.sendExcel, email: mails[m.id] ?? '', aktuell: current.has(m.id), stored: true }));
   // Vorbelegung aus der letzten Halbserie nur beim ersten Mal; danach zählt die gespeicherte Liste (sonst kämen gelöschte Mitglieder zurück)
   for (const p of saved.length ? [] : latest?.players ?? []) {
@@ -47,6 +52,7 @@ async function renderMembersInner(host) {
     <form class="add" id="m-add" autocomplete="off"><input id="m-name" placeholder="Neues Mitglied, z. B. Sabine" maxlength="30" aria-label="Name des neuen Mitglieds"><button class="primary" type="submit">Hinzufügen</button></form>
     <div class="tools"><button type="button" id="m-cur">Nur letzte Mitspieler</button><button type="button" id="m-all">Alle</button><button type="button" id="m-none">Keine</button>
       <span class="count" style="margin-left:auto"><b id="m-n">0</b> von <span id="m-t">0</span> tippen mit</span></div>
+    <div class="muted" id="m-open" role="status"></div>
     <ul class="mlist" id="m-list"></ul>
     <div class="row"><button type="button" class="primary" id="m-save">Mitglieder speichern</button><span id="m-msg" class="muted" role="status"></span></div></div>`;
 
@@ -59,7 +65,9 @@ async function renderMembersInner(host) {
       const n = tipCount.get(m.id);
       const badge = !m.stored && !m.aktuell ? '<span class="badge new">neu</span>' : m.aktuell ? '<span class="badge">tippt aktuell mit</span>' : '<span class="badge old">früher</span>';
       const lock = lockedTips.has(m.id) ? '<span class="badge">abgeschickt</span>' : '';
-      const progress = tipping && n != null ? `<span class="badge ${n >= total ? '' : 'old'}">${n}/${total} Tipps</span>` : '';
+      const st = statusOf(m);
+      const progress = !st ? '' : st.state === 'komplett' ? `<span class="badge">✓ vollständig${st.source === 'excel' ? ' (Excel)' : ''}</span>`
+        : st.state === 'teilweise' ? `<span class="badge old">unvollständig ${st.count}/${total}</span>` : '<span class="badge new">kein Tipp</span>';
       return `<li class="${m.aktiv ? '' : 'off'}"><div class="mrow">
         <label class="gut"><input type="checkbox" data-a="${i}" ${m.aktiv ? 'checked' : ''} aria-label="${esc(m.name)} tippt mit"><span class="nm">${esc(m.name)}</span>${progress}${lock}${badge}</label>
         <button class="rm" data-rm="${i}" aria-label="${esc(m.name)} aus der Liste löschen" title="Löschen">×</button></div>
@@ -72,6 +80,12 @@ async function renderMembersInner(host) {
     const rest = allMembers.filter((m) => !have.has(normName(m.name)));
     $('#m-pick').innerHTML = `<option value="">${rest.length ? 'Mitglied aus der Verwaltung wählen …' : 'Alle Mitglieder sind in der Liste'}</option>${rest.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('')}`;
     $('#m-pick').disabled = !rest.length;
+    if (tipping) {
+      const open = rows.filter((m) => m.aktiv).map((m) => ({ m, st: statusOf(m) })).filter((x) => x.st.state !== 'komplett');
+      $('#m-open').innerHTML = open.length
+        ? `<b>Noch kein vollständiger Tipp (${open.length}):</b> ${open.map(({ m, st }) => esc(m.name) + (st.count ? ` (${st.count}/${total})` : '')).join('; ')}`
+        : '<b>Alle Mitspieler haben einen vollständigen Tipp abgegeben.</b>';
+    }
     $('#m-n').textContent = rows.filter((m) => m.aktiv).length; $('#m-t').textContent = rows.length;
   }
 

@@ -12,6 +12,12 @@ service cloud.firestore {
         && !get(/databases/$(database)/documents/admins/$(request.auth.token.email.lower())).data.get('delegate', false);
     }
 
+    // Tipps und Austragen nur bis zum Anstoß des ersten Spiels (tipping/current.firstStart; fehlt das Feld, gilt keine Sperre).
+    function notStarted() {
+      let t = get(/databases/$(database)/documents/tipping/current).data;
+      return !('firstStart' in t) || request.time.toMillis() < t.firstStart;
+    }
+
     // Tabellen, Halbserien und Ergebnisse sind öffentlich lesbar, schreiben nur Admins.
     match /rounds/{id} {
       allow read: if true;
@@ -81,6 +87,10 @@ service cloud.firestore {
       allow update: if resource.data.aktiv == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sendExcel'])
         && request.resource.data.sendExcel == true;
+      // "Ich möchte nicht mehr mittippen": ein aktiver Mitspieler nimmt sich selbst aus der Liste (nur vor dem ersten Spiel).
+      allow update: if resource.data.aktiv == true && notStarted()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aktiv'])
+        && request.resource.data.aktiv == false;
     }
     match /tipperMail/{id} {
       allow read, write: if isAdmin();
@@ -102,9 +112,11 @@ service cloud.firestore {
         // Neu anlegen: Runde offen, Mitglied hat Haken. Überschreiben nur, solange der Tipp nicht abgeschickt (locked) ist;
         // danach schaltet ein Admin ihn in der Mitgliederverwaltung frei.
         allow create: if get(/databases/$(database)/documents/tipping/$(id)).data.open == true
+          && notStarted()
           && get(/databases/$(database)/documents/tippers/$(m)).data.aktiv == true
           && request.resource.data.keys().hasOnly(['name', 'tips', 'updatedAt', 'locked']);
         allow update: if resource.data.get('locked', false) != true
+          && notStarted()
           && get(/databases/$(database)/documents/tipping/$(id)).data.open == true
           && get(/databases/$(database)/documents/tippers/$(m)).data.aktiv == true
           && request.resource.data.keys().hasOnly(['name', 'tips', 'updatedAt', 'locked']);

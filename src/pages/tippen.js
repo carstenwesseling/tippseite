@@ -1,6 +1,7 @@
-import { getTipping, listTippers, getTips, saveTips, queueExcelMail, registerExcelMail } from '../db.js';
-import { buildTipWorkbook, tipFileName, toBase64 } from '../tipsheet.js';
+import { getTipping, listTippers, getTips, saveTips, registerExcelMail, withdrawTipper, tippingRoundPlayers } from '../db.js';
+import { buildTipWorkbook, tipFileName } from '../tipsheet.js';
 import { shortName, officialName } from '../teams.js';
+import { tipStatus, findPlayer, hasStarted, validTipCount } from '../tipstatus.js';
 import { esc, $ } from '../util.js';
 
 const K_WHO = 'tipp-wer-v1';
@@ -51,6 +52,9 @@ export async function renderTippen(app, session) {
   let tips = {};
   let savedAt = null;
   let locked = false; // abgeschickt: nicht mehr änderbar, bis die Verwaltung freischaltet
+  let viaExcel = false; // vollständiger Tipp liegt bereits in der Halbserie (z. B. per Excel eingelesen)
+  const started = hasStarted(order); // erstes Spiel angepfiffen: nichts mehr änderbar
+  const roundPlayers = await tippingRoundPlayers(tipping).catch(() => []);
 
   app.innerHTML = `<div class="tp">
     <div class="tp-head gut"><h1>${esc(tipping.title)} tippen</h1></div>
@@ -60,6 +64,7 @@ export async function renderTippen(app, session) {
         <select id="wer"><option value="">– Name wählen –</option>${members.map((m) => `<option value="${esc(m.id)}"${m.id === who ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select></div>
       <div class="prog"><span class="pbar" aria-hidden="true"><i></i></span><span class="pnum"><b>0</b>/${total}</span><button type="button" class="send primary">Abschicken</button></div>
     </div>
+    <div class="wd gut"><button type="button" class="linkbtn" id="wd" hidden>Ich möchte nicht mehr mittippen</button></div>
     <div class="need gut" id="need"></div>
     ${days.map((d) => { const ms = order.filter((m) => m.spieltag === d);
       return `<section class="sp" id="d${d}"><h2 class="dh gut"><span>${d}. Spieltag</span><span class="cnt" data-cnt="${d}">0/${ms.length}</span></h2><div class="ms">${ms.map(row).join('')}</div></section>`; }).join('')}
@@ -68,7 +73,7 @@ export async function renderTippen(app, session) {
         <div class="mailform" id="mailform" hidden>
           <input type="email" id="mailto" inputmode="email" autocomplete="email" placeholder="Deine E-Mail-Adresse eintippen" aria-label="E-Mail-Adresse für den Excel-Tippschein">
           <button type="button" class="primary" id="mailgo">Übertragen</button>
-          <div class="muted">Die Adresse wird für dich hinterlegt („Excel per Mail“) und der aktuelle Tippzettel als Excel-Datei dorthin geschickt.</div>
+          <div class="muted">Die Adresse wird für dich in der Verwaltung hinterlegt („Excel per Mail“). Es wird keine Mail verschickt.</div>
         </div>
         <div class="muted" id="mailnote"></div>
       </div>
@@ -90,27 +95,44 @@ export async function renderTippen(app, session) {
     });
     app.querySelector('.pnum b').textContent = n;
     app.querySelector('.pbar i').style.width = (n / total * 100) + '%';
-    app.querySelectorAll('.send').forEach((b) => { b.disabled = !who || !tipping.open || locked; });
+    app.querySelectorAll('.send').forEach((b) => { b.disabled = !who || !tipping.open || locked || started || viaExcel; });
     $('#dl').disabled = !who;
+    $('#wd').hidden = !who;
+    $('#wd').disabled = started;
+    $('#wd').title = started ? 'Das erste Spiel hat begonnen, die Teilnehmerliste ist gesperrt.' : '';
     const m = member();
     $('#mailform').hidden = !m;
-    $('#mailnote').textContent = m ? '' : 'Wähle oben deinen Namen. Dann kannst du hier deine E-Mail-Adresse eintragen und den Tippzettel als Excel-Datei per Mail bekommen.';
+    $('#mailnote').textContent = m ? '' : 'Wähle oben deinen Namen. Dann kannst du hier deine E-Mail-Adresse hinterlegen.';
     if (m && !$('#mailto').value) $('#mailto').value = lget(K_MAIL(who)) || '';
   }
 
+  let remoteTips = null;
+  const remote_ok = () => validTipCount(remoteTips?.tips, order) >= total;
   async function load() {
-    tips = {}; savedAt = null; locked = false;
+    remoteTips = null;
+    tips = {}; savedAt = null; locked = false; viaExcel = false;
     if (who) {
       const draft = lget(K_DRAFT(who));
       const remote = await getTips(who).catch(() => null);
+      remoteTips = remote;
       if (remote) { tips = Object.fromEntries(Object.entries(remote.tips ?? {}).map(([k, v]) => [k, { h: String(v.h), g: String(v.g) }])); savedAt = remote.updatedAt; locked = remote.locked === true; }
       if (draft && !locked) { try { tips = { ...tips, ...JSON.parse(draft) }; } catch { /* kaputter Entwurf */ } }
       if (locked) lset(K_DRAFT(who), null);
     }
+    // Tipps aus der Halbserie in der Datenbank (z. B. per Excel eingelesen) gelten, wenn sie vollständig sind
+    const rp = who && !remote_ok() ? findPlayer(roundPlayers, member().name) : null;
+    if (rp && validTipCount(rp.tips, order) >= total) {
+      viaExcel = true;
+      tips = Object.fromEntries(order.filter((m) => rp.tips[m.key]).map((m) => [m.key, { h: String(rp.tips[m.key].h), g: String(rp.tips[m.key].g) }]));
+    }
     const open = tipping.open;
-    inputs.forEach((i) => { i.disabled = !who || !open || locked; i.value = tips[i.dataset.k]?.[i.dataset.s] ?? ''; });
+    inputs.forEach((i) => { i.disabled = !who || !open || locked || started || viaExcel; i.value = tips[i.dataset.k]?.[i.dataset.s] ?? ''; });
     const when = savedAt ? new Date(savedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '';
-    msg(locked ? `<span class="okline">Dein Tipp ist am ${when} abgeschickt und dauerhaft gespeichert.</span> Er kann nicht mehr geändert werden. Soll er überschrieben werden, schaltet die Verwaltung ihn frei.`
+    const st = who ? tipStatus({ name: member().name, tippingTips: remoteTips?.tips, roundPlayers, order }) : null;
+    const stand = st ? ` Gültige Tipps: ${st.count} von ${total} (${st.state === 'komplett' ? 'vollständig' : st.state === 'teilweise' ? 'unvollständig' : 'noch kein Tipp'}).` : '';
+    msg(viaExcel ? `<span class="okline">Dein Tipp liegt bereits vollständig vor (per Excel eingelesen).</span> Er kann hier nicht mehr geändert werden.`
+      : started && !(locked && remoteTips) ? `<span class="warnline">Das erste Spiel hat begonnen. Tipps können nicht mehr geändert werden.</span>${stand}`
+      : locked ? `<span class="okline">Dein Tipp ist am ${when} abgeschickt und dauerhaft gespeichert.</span> Er kann nicht mehr geändert werden. Soll er überschrieben werden, schaltet die Verwaltung ihn frei.`
       : !open ? '<span class="warnline">Die Tipprunde ist geschlossen. Es kann nicht mehr getippt werden.</span>'
       : !who ? 'Wähle oben zuerst deinen Namen, dann kannst du tippen.'
       : 'Noch nicht abgeschickt. Deine Eingaben bleiben auf diesem Gerät erhalten. Mit „Abschicken“ wird der Tipp dauerhaft gespeichert.');
@@ -167,7 +189,25 @@ export async function renderTippen(app, session) {
   }
   app.querySelectorAll('.send').forEach((b) => b.addEventListener('click', submit));
 
-  // Mailadresse übertragen: Adresse beim Mitspieler hinterlegen ("Excel per Mail") und den aktuellen Tippzettel dorthin schicken.
+  // "Ich möchte nicht mehr mittippen": nimmt den Mitspieler aus der Tipperliste (solange das erste Spiel nicht begonnen hat)
+  $('#wd').addEventListener('click', async () => {
+    const m = member(); if (!m || started) return;
+    if (!confirm(`${m.name}: Du tippst in dieser Halbserie nicht mehr mit und wirst aus der Liste der Tipper genommen. Deine Tipps zählen dann nicht. Die Verwaltung kann dich wieder aufnehmen. Wirklich austragen?`)) return;
+    $('#wd').disabled = true;
+    try {
+      await withdrawTipper(who);
+      members = members.filter((x) => x.id !== who);
+      sel.querySelector(`option[value="${CSS.escape(who)}"]`)?.remove();
+      who = ''; sel.value = ''; lset(K_WHO, '');
+      await load();
+      msg('<span class="okline">Du bist aus der Liste der Tipper genommen. Danke für die bisherige Teilnahme!</span>');
+    } catch (e) {
+      msg(`<span class="warnline">Austragen fehlgeschlagen${denied(e) ? ' (das erste Spiel hat begonnen oder die Firestore-Regeln sind nicht aktuell)' : ''}: ${esc(e.message)}</span>`);
+      $('#wd').disabled = false;
+    }
+  });
+
+  // Mailadresse übertragen: nur beim Mitspieler hinterlegen (Verwaltung → Tippen, Haken "Excel per Mail"); es wird keine Mail verschickt.
   $('#mailgo').addEventListener('click', async () => {
     const m = member(); if (!m) return;
     const to = $('#mailto').value.trim();
@@ -180,16 +220,7 @@ export async function renderTippen(app, session) {
       msg(`<span class="warnline">Die Adresse konnte nicht hinterlegt werden${denied(e) ? ' (Firestore-Regeln nicht aktuell)' : ''}: ${esc(e.message)}</span>`);
       go.disabled = false; return;
     }
-    try {
-      await queueExcelMail({
-        tipperId: who, to, subject: 'Dein aktueller Tippzettel',
-        text: `Hallo ${m.name},\n\nanbei dein aktueller Tippzettel für ${tipping.title} als Excel-Datei.\n\nViel Erfolg!`,
-        filename: tipFileName(tipping.title, m.name), base64: toBase64(await sheet()),
-      });
-      msg(`<span class="okline">Adresse hinterlegt. Der Tippzettel geht an ${esc(to)}.</span>`);
-    } catch (e) {
-      msg(`<span class="warnline">Die Adresse ist hinterlegt, die Mail konnte aber nicht gesendet werden (Mailversand nicht eingerichtet?): ${esc(e.message)}</span>`);
-    }
+    msg(`<span class="okline">Adresse ${esc(to)} gespeichert.</span>`);
     go.disabled = false;
   });
   load();
