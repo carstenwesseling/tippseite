@@ -26,6 +26,7 @@ button { cursor: pointer; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: var(--surface); z-index: 30; }
 .bar-in { display: flex; align-items: center; gap: 10px; height: 48px; max-width: 1200px; margin: 0 auto; }
 .brand { flex: none; font: 700 20px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.brand img { display: block; width: 30px; height: 30px; }
 .brand i { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, var(--ink) 0 22%, transparent 24%), var(--surface); border: 2px solid var(--ink); }
 nav { display: flex; gap: 12px; margin-left: auto; white-space: nowrap; font-weight: 500; font-size: 13px; color: var(--muted); }
 nav a[aria-current] { color: var(--ink); box-shadow: 0 2px 0 var(--pitch); }
