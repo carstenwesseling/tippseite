@@ -103,7 +103,10 @@ describe('samePerson', () => {
     expect(_canon('Reimann,St.')).toBe('Reimann,St.');
     expect(_canon('Müller,R.')).toBe('Müller,R.');
     expect(_canon('Laskwoski,W.')).toBe('Laskowski,W.');
-    expect(_canon('He-MAn')).toBe('Homann,M.');
+    expect(_canon('He-MAn')).toBe('Hohmann,M.');
+    expect(_canon('Homann,M.')).toBe('Hohmann,M.');
+    expect(_canon('Homann,M')).toBe('Hohmann,M.');
+    expect(_canon('Hohmann,M.')).toBe('Hohmann,M.');
     expect(_canon('Lehn v.,U.')).toBe('v.Lehn,U.');
     expect(_canon('v.Lehn,U.')).toBe('v.Lehn,U.');
     expect(_canon('v. Lehn,U.')).toBe('v.Lehn,U.');
