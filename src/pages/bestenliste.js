@@ -12,7 +12,7 @@ export async function renderBestenliste(app, session) {
   // Abgeschlossene Halbserien tragen ihre fertige Tabelle (`summary`) im Dokument: dann sind keine weiteren Lesezugriffe nötig.
   // Fehlt sie (neue Halbserie), wird sie berechnet und – als Admin – gespeichert; alle gleichzeitig.
   const played = (await Promise.all(rounds.map(async (meta) => {
-    let rows = meta.summary?.map(([name, total, rank]) => ({ name, total, rank }));
+    let rows = meta.summary?.map((x) => ({ name: x.n, total: x.t, rank: x.r }));
     if (!rows) {
       rows = await computeSummary(meta, { canWrite: session.isAdmin }); // null = noch nicht abgeschlossen
       if (rows && session.isAdmin) saveRoundSummary(meta.id, rows).catch(() => {});
