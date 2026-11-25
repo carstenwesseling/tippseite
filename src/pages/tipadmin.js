@@ -77,12 +77,16 @@ async function renderMembersInner(host) {
 
   list.addEventListener('change', (e) => {
     const t = e.target;
+    syncMails();
     if (t.dataset.a != null) rows[t.dataset.a].aktiv = t.checked;
     else if (t.dataset.x != null) rows[t.dataset.x].sendExcel = t.checked;
     else return;
     draw();
   });
+  // Adresse aus dem Feld übernehmen: bei Eingabe, bei Änderung (Autofill/Einfügen lösen oft nur "change" aus) und vor dem Speichern
+  const syncMails = () => list.querySelectorAll('input[data-e]').forEach((inp) => { rows[inp.dataset.e].email = inp.value; });
   list.addEventListener('input', (e) => { if (e.target.dataset.e != null) rows[e.target.dataset.e].email = e.target.value; });
+  list.addEventListener('focusout', syncMails);
   list.addEventListener('click', async (e) => {
     const u = e.target.dataset.unlock;
     if (u != null) {
@@ -120,6 +124,7 @@ async function renderMembersInner(host) {
   $('#m-all').onclick = () => { rows.forEach((m) => { m.aktiv = true; }); draw(); };
   $('#m-none').onclick = () => { rows.forEach((m) => { m.aktiv = false; }); draw(); };
   $('#m-save').addEventListener('click', async () => {
+    syncMails();
     const bad = rows.find((m) => m.aktiv && m.sendExcel && !EMAIL.test(m.email.trim()));
     if (bad) { say(`Für ${bad.name} fehlt eine gültige E-Mail-Adresse (oder „Excel per Mail“ abwählen).`, true); return; }
     $('#m-save').disabled = true; say('Speichere …');
