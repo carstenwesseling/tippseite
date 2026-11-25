@@ -272,7 +272,9 @@ export async function openTipping({ title, jahr, typ }) {
     .sort((a, b) => a.spieltag - b.spieltag || String(a.date).localeCompare(String(b.date)))
     .map(({ key, spieltag, home, away, date }) => ({ key, spieltag, home, away, date }));
   if (order.length !== 153) throw new Error(`OpenLigaDB liefert ${order.length} statt 153 Spielen für ${typ === 'hin' ? 'die Hinrunde' : 'die Rückrunde'} ${jahr}/${String(jahr + 1).slice(2)}.`);
-  await setDoc(TIPPING(), { title, jahr, typ, first, order, open: true, createdAt: Date.now() });
+  const starts = order.map((m) => Date.parse(m.date)).filter(Number.isFinite);
+  // firstStart: ab diesem Zeitpunkt (erstes Spiel) sind Tipps und Austragen gesperrt (auch in den Firestore-Regeln)
+  await setDoc(TIPPING(), { title, jahr, typ, first, order, open: true, createdAt: Date.now(), ...(starts.length ? { firstStart: Math.min(...starts) } : {}) });
 }
 
 export const setTippingOpen = (open) => setDoc(TIPPING(), { open }, { merge: true });
@@ -307,7 +309,8 @@ export async function deleteTipping() {
 
 /** Beendet die Tipprunde: wird zur normalen Halbserie (Tabelle), die Tipps wandern mit. */
 export async function tippingToRound(t) {
-  const tips = await listTips();
+  const active = new Set((await listTippers({ onlyActive: true })).map((m) => m.id));
+  const tips = (await listTips()).filter((p) => active.has(p.id)); // ausgetragene Mitspieler zählen nicht
   const players = tips.map((p) => ({
     name: p.name,
     tips: Object.fromEntries(Object.entries(p.tips ?? {}).filter(([, v]) => Number.isFinite(v?.h) && Number.isFinite(v?.g))),
@@ -325,6 +328,14 @@ export async function tippingToRound(t) {
 export async function registerExcelMail(id, email) {
   await setDoc(doc(db, 'tipperMail', id), { email });
   await updateDoc(doc(db, 'tippers', id), { sendExcel: true });
+}
+/** "Ich möchte nicht mehr mittippen": nimmt den Mitspieler aus der Tipperliste der Halbserie (Haken in der Verwaltung entfällt). */
+export const withdrawTipper = (id) => updateDoc(doc(db, 'tippers', id), { aktiv: false });
+
+/** Spieler der Halbserie in der Datenbank, die zur Tipprunde gehört (z. B. per Excel eingelesen). */
+export async function tippingRoundPlayers(t) {
+  const r = (await listRounds()).find((x) => x.jahr === t.jahr && x.typ === t.typ && !x.liga);
+  return r ? (await getRound(r.id)).players : [];
 }
 export const queueExcelMail = ({ tipperId: id, to, subject, text, filename, base64 }) =>
   addDoc(collection(db, 'mail'), {
