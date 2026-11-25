@@ -402,8 +402,12 @@ export async function renderAdmin(app, session, flash = '') {
   const makePdf = async () => {
     const r = rounds[0];
     const [round, api] = await Promise.all([getRound(r.id), getSeasonMatches(r.jahr, { canWrite: true })]);
-    const { spieltage, results } = resolveResults(round, api.matches);
-    const blob = await buildTablePdf(buildTable(round.players, results, spieltage), spieltage, roundLabel(r));
+    const { spieltage: alle, results } = resolveResults(round, api.matches);
+    const table = buildTable(round.players, results, alle);
+    // nur Spieltage mit Ergebnissen (bzw. Chronik-Daten), noch nicht gespielte Spalten entfallen
+    const played = new Set([...results.map((x) => x.spieltag), ...round.players.flatMap((p) => Object.keys(p.perDay ?? {}).map(Number))]);
+    const spieltage = alle.filter((d) => played.has(d));
+    const blob = await buildTablePdf(table, spieltage, roundLabel(r));
     return { blob, name: `Tabelle_${roundCode(r)}.pdf`, title: roundLabel(r) };
   };
   const download = ({ blob, name }) => {
