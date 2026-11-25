@@ -87,7 +87,7 @@ export function nameFromFilename(filename) {
   for (const { re } of SEASON_PATTERNS) s = s.replace(re, ' ');
   s = s.replace(SINGLE_YEAR, ' ').replace(/_/g, ' ');
   s = s.replace(new RegExp(RUECK.source, 'gi'), ' ').replace(new RegExp(HIN.source, 'gi'), ' ');
-  s = s.replace(/tippspiel|tipps?|halbserie/gi, ' ');
+  s = s.replace(/tippschein|tippspiel|tipps?|halbserie/gi, ' ');
   s = s.replace(new RegExp(H_ONLY.source, 'gi'), ' ').replace(new RegExp(R_ONLY.source, 'gi'), ' ');
   return s.replace(/\s+/g, ' ').replace(/^[\s\-–]+|[\s\-–]+$/g, '').trim();
 }
