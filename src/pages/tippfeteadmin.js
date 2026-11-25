@@ -1,5 +1,5 @@
 // Verwaltung, Reiter "Tippfete": Datum, Uhrzeit und Ort der nächsten Tippfete.
-import { getTippfete, saveTippfete, listVotes, resetVotes, listTippers } from '../db.js';
+import { getTippfete, saveTippfete, listVotes, resetVotes, currentMembers } from '../db.js';
 import { normName } from '../halbserie.js';
 import { adminGate, adminNav } from './admin.js';
 import { esc, $ } from '../util.js';
@@ -9,10 +9,10 @@ export async function renderTippfeteAdmin(app, session, flash = '') {
   const t = (await getTippfete().catch(() => null)) ?? {};
   const votes = (await listVotes().catch(() => [])).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const kommt = votes.filter((v) => v.antwort === 'k'), kommtNicht = votes.filter((v) => v.antwort === 'n');
-  // Noch nicht abgestimmt: alle aktiven Mitspieler der aktuellen Tipprunde ohne Stimme.
+  // Noch nicht abgestimmt: alle Mitspieler der aktuellen Halbserie ohne Stimme.
   const voted = new Set(votes.map((v) => normName(v.name)));
-  const offen = (await listTippers({ onlyActive: true }).catch(() => [])).filter((t) => !voted.has(normName(t.name)));
-  const list = (arr) => (arr.length ? `<ul>${arr.map((v) => `<li>${esc(v.name)}</li>`).join('')}</ul>` : '<p class="muted">Noch niemand.</p>');
+  const offen = (await currentMembers().catch(() => [])).filter((n) => !voted.has(normName(n)));
+  const list = (arr) => (arr.length ? `<ul>${arr.map((v) => `<li>${esc(v.name ?? v)}</li>`).join('')}</ul>` : '<p class="muted">Noch niemand.</p>');
   app.innerHTML = `${adminNav('tippfete')}${flash}
     <div class="card"><h3>Nächste Tippfete</h3>
       <p class="muted">Wird auf der Seite „Nächste Tippfete“ angezeigt. Alle Felder leeren und speichern entfernt den Termin.</p>
