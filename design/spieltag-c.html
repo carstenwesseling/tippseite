@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tippspiel – Spiele hinter den Punkten, Vorschlag C: Matchday</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="spieltag-base.css">
+<style>
+/* Vorschlag C "Matchday": wie in einer Sport-App. Die Tabelle bleibt stehen, die Spiele kommen als Panel darüber
+   (am Handy von unten, am Desktop von rechts). Spiele sind zweizeilig: Heim/Gast untereinander, daneben Ergebnis und Tipp. */
+body.detail-open { overflow: hidden; }
+.scrim { position: fixed; inset: 0; background: #0b130e88; z-index: 40; animation: fade .15s ease-out; }
+.sheet { position: fixed; z-index: 41; background: var(--surface); color: var(--ink); display: flex; flex-direction: column; outline: 0;
+  left: 0; right: 0; bottom: 0; max-height: 88dvh; border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px #0005; animation: up .2s ease-out; }
+@media (min-width: 900px) { .sheet { left: auto; top: 0; width: 460px; max-height: none; border-radius: 0; box-shadow: -8px 0 30px #0004; animation: left .2s ease-out; } }
+@keyframes up { from { transform: translateY(40px); opacity: .4; } } @keyframes left { from { transform: translateX(40px); opacity: .4; } } @keyframes fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sheet, .scrim { animation: none; } }
+.grip { width: 38px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 0; flex: none; } @media (min-width: 900px) { .grip { display: none; } }
+.sh { padding: 8px max(16px, env(safe-area-inset-left, 0px)) 0; flex: none; }
+.row1 { display: flex; align-items: center; gap: 8px; }
+.row1 .st { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.row1 .st a, .row1 .st span { display: grid; place-items: center; width: 34px; height: 32px; font-size: 16px; }
+.row1 .st a:hover { background: var(--pitch-soft); } .row1 .st span { color: var(--line); }
+.row1 .nm { flex: 1; min-width: 0; line-height: 1.1; }
+.row1 .nm b { display: block; font: 700 24px/1 var(--display); text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere; }
+.row1 .nm small { color: var(--muted); font-size: 12.5px; }
+.x { width: 34px; height: 34px; border-radius: 50%; background: var(--bg); font-size: 18px; line-height: 1; flex: none; } .x:hover { background: var(--pitch-soft); }
+.res { display: flex; align-items: baseline; gap: 10px; margin: 10px 0 8px; }
+.res .v { font: 700 54px/.85 var(--display); color: var(--pitch); }
+.res .u { font-weight: 600; font-size: 14px; } .res .f { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; margin-left: auto; text-align: right; }
+.res .f span { display: block; }
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-inline: max(16px, env(safe-area-inset-left, 0px)); overflow-x: auto; scrollbar-width: none; }
+.tabs a { padding: 8px 12px 9px; font-weight: 500; font-size: 14px; color: var(--muted); white-space: nowrap; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.tabs a b { margin-left: 5px; font-weight: 700; color: var(--ink); }
+.tabs a[aria-current] { color: var(--ink); border-bottom-color: var(--pitch); }
+.sheet-body { overflow: auto; flex: 1; overscroll-behavior: contain; padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+.tg { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px max(16px, env(safe-area-inset-left, 0px)); font-size: 13px; color: var(--muted); }
+.tg button { padding: 4px 10px; border: 1px solid var(--line); border-radius: 14px; font-weight: 500; }
+.tg button[aria-pressed="true"] { background: var(--pitch); color: var(--pitch-ink); border-color: var(--pitch); }
+.dh { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: baseline; padding: 6px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); border-block: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+.dh a { font: 700 15px/1 var(--display); text-transform: uppercase; letter-spacing: .06em; color: var(--ink); } .dh a:hover { color: var(--pitch); }
+.dh b { color: var(--ink); }
+.lh { display: grid; grid-template-columns: minmax(0, 1fr) 46px 46px 30px; gap: 0 4px; padding: 6px max(16px, env(safe-area-inset-left, 0px)) 2px; font: 600 10px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.lh span + span { text-align: center; }
+.g { display: grid; grid-template-columns: minmax(0, 1fr) 46px 46px 30px; gap: 0 4px; align-items: center; padding: 7px max(16px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.g .tm { display: grid; gap: 2px; font-size: 14.5px; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.g .gl, .g .tp { display: grid; gap: 2px; text-align: center; font: 700 17px/1.25 var(--display); }
+.g .tp { color: var(--muted); font-weight: 600; }
+.g .gl span.w { color: var(--ink); }
+.g .bd { justify-self: center; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 12px; font-weight: 700; background: var(--bg); color: var(--muted); }
+.g.p2 .tp { color: var(--pitch); } .g.p2 .bd { background: var(--pitch); color: var(--pitch-ink); }
+.g.p1 .bd { background: var(--pitch-soft); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--pitch); }
+.g.p0 { color: var(--muted); } .g.p0 .tm { font-weight: 400; }
+.g.p2 { background: var(--pitch-soft); }
+.leg { padding: 10px max(16px, env(safe-area-inset-left, 0px)) 0; color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.leg .bd { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 10px; font-weight: 700; margin-right: 4px; vertical-align: -3px; background: var(--bg); }
+.leg .b2 { background: var(--pitch); color: var(--pitch-ink); } .leg .b1 { background: var(--pitch-soft); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--pitch); }
+.more { padding: 8px max(16px, env(safe-area-inset-left, 0px)) 0; font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="bar"><div class="gut"><div class="bar-in">
+  <a class="brand" href="index.html"><i></i>Tippspiel</a>
+  <nav><a href="#/" aria-current="page">Halbserien</a><a href="#/">Bestenliste</a><a href="#/">Tippen</a></nav>
+  <span class="avatar">CW</span>
+</div></div></header>
+<div class="vs"><div class="gut"><span>Vorschlag:</span><a href="spieltag-a.html">A Anstoß</a><a href="spieltag-b.html">B Spielfeld</a><a href="spieltag-c.html" aria-current="page">C Matchday</a><a href="index.html">← alle Entwürfe</a></div></div>
+<main>
+  <section id="tablesec">
+    <div class="gut head"><div><h1>Rückrunde 25/26</h1><div class="meta" id="roundmeta"></div></div></div>
+    <div class="wrap" tabindex="0" aria-label="Tabelle, seitlich scrollbar"></div>
+    <div class="gut hint"><span><b>Auf eine Zahl tippen</b> zeigt die Spiele dahinter: Tipp und echtes Ergebnis.</span><span>Name = alle Spiele des Spielers.</span></div>
+  </section>
+  <section id="detail" hidden></section>
+</main>
+<script>
+window.SB_UI = {
+  mode: 'sheet',
+  render(c) {
+    const { esc } = window.SB;
+    const game = (r) => `<div class="g p${r.pts}"><div class="tm"><span>${esc(r.m.home)}</span><span>${esc(r.m.away)}</span></div>
+      <div class="gl" aria-label="Ergebnis ${r.res.h}:${r.res.g}"><span class="${r.res.h > r.res.g ? 'w' : ''}">${r.res.h}</span><span class="${r.res.g > r.res.h ? 'w' : ''}">${r.res.g}</span></div>
+      <div class="tp" aria-label="Tipp ${r.tip.h}:${r.tip.g}"><span>${r.tip.h}</span><span>${r.tip.g}</span></div>
+      <span class="bd" title="${r.pts === 2 ? 'exakt' : r.pts === 1 ? 'Tendenz' : 'daneben'}">${r.pts}</span></div>`;
+    const grp = (g) => `<div class="dh"><a href="${SB.href(c.name, 'd' + g.day)}">Spieltag ${g.day}</a><span>${g.best && c.ty !== 'd' ? '★ ' : ''}<b>${g.sum}</b> Pkt</span></div>
+      <div class="lh" aria-hidden="true"><span></span><span>Erg.</span><span>Tipp</span><span></span></div>${g.rows.map(game).join('')}${g.hidden ? `<div class="more">+ ${g.hidden} ${g.hidden === 1 ? 'Spiel' : 'Spiele'} ohne Punkte</div>` : ''}`;
+    const st = (x, ch, lab) => x ? `<a href="${x.href}" aria-label="${lab} ${esc(x.name)}">${ch}</a>` : `<span aria-hidden="true">${ch}</span>`;
+    return `<div class="scrim" data-act="close"></div>
+      <div class="sheet" role="dialog" aria-modal="true" aria-label="Spiele von ${esc(c.name)}: ${esc(c.label)}" tabindex="-1"><div class="grip"></div>
+        <div class="sh"><div class="row1"><div class="st">${st(c.prevP, '‹', 'Vorheriger Spieler:')}${st(c.nextP, '›', 'Nächster Spieler:')}</div>
+          <div class="nm"><b>${esc(c.name)}</b><small>Platz ${c.p.rank}${c.isBest ? ' · ★ Tagesbester' : ''}</small></div>
+          <button class="x" data-act="close" aria-label="Schließen">×</button></div>
+          <div class="res"><span class="v">${c.value}</span><span class="u">${c.unit}<br><small style="font-weight:400;color:var(--muted)">${esc(c.label)}</small></span>
+            <span class="f"><span>${c.formula}</span>${c.ty === 'total' || c.ty === 'd' ? `<span>${c.cnt.n} ohne Punkte</span>` : ''}</span></div>
+          <div class="tabs" role="tablist">${c.tabs.map((t) => `<a href="${t.href}" ${t.active ? 'aria-current="true"' : ''}>${t.label}<b>${t.n}</b></a>`).join('')}</div></div>
+        <div class="sheet-body">
+          ${c.canToggle ? `<div class="tg"><span>${c.only ? 'Nur Spiele mit Punkten' : 'Alle Spiele des Spieltags'}</span><button data-act="only" aria-pressed="${c.only}">nur Treffer</button></div>` : ''}
+          ${c.groups.map(grp).join('')}
+          <div class="leg"><span><i class="bd b2">2</i>exakt</span><span><i class="bd b1">1</i>Tendenz</span><span><i class="bd">0</i>daneben</span><span>Zahlen: Heim oben, Gast unten</span></div>
+        </div></div>`;
+  },
+};
+</script>
+<script src="spieltag.js"></script>
+</body>
+</html>

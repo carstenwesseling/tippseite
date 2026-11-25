@@ -3,6 +3,7 @@ import { getAdminInfo, getDelegate, getTipping } from './db.js';
 import { esc, $, enableSort } from './util.js';
 import { renderHome } from './pages/home.js';
 import { renderTable, stopPolling } from './pages/table.js';
+import { renderSpiele } from './pages/spiele.js';
 import { renderBestenliste, renderBestenlisteMember } from './pages/bestenliste.js';
 import { renderAdmin } from './pages/admin.js';
 import { renderMembers, renderMember } from './pages/members.js';
@@ -19,7 +20,7 @@ const app = $('#app');
 async function route() {
   stopPolling();
   markNav();
-  const [, page, id, id2] = location.hash.split('/');
+  const [, page, id, id2, id3] = location.hash.split('/');
   if (!configured) {
     app.innerHTML = `<div class="card"><h2>Firebase nicht konfiguriert</h2>
       <p>Lege eine <code>.env</code> nach Vorlage <code>.env.example</code> an und starte neu.</p></div>`;
@@ -37,6 +38,7 @@ async function route() {
     else if (page === 'admin' && id === 'mitglieder') await renderMembers(app, session);
     else if (page === 'admin' && id === 'mitglied' && id2) await renderMember(app, session, decodeURIComponent(id2));
     else if (page === 'admin') await renderAdmin(app, session);
+    else if (page === 'spiele' && id && id2 && id3) await renderSpiele(app, session, decodeURIComponent(id), decodeURIComponent(id2), id3);
     else if (page === 'runde' && id) await renderTable(app, session, id);
     else await renderHome(app, session);
     enableSort(app);
