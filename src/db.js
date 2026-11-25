@@ -66,11 +66,11 @@ export async function saveRound({ jahr, typ, order, excelResults, players, kind,
 }
 
 /**
- * Speichert die fertige Tabelle einer abgeschlossenen Halbserie (`summary`: [[Name, Punkte, Rang], …]) im Halbserien-Dokument.
+ * Speichert die fertige Tabelle einer abgeschlossenen Halbserie (`summary`: [{ n: Name, t: Punkte, r: Rang }, …]; Firestore kennt keine verschachtelten Arrays) im Halbserien-Dokument.
  * Die Bestenliste liest dann nur noch die Halbserien-Dokumente statt aller Spieler und Ergebnisse.
  */
 export async function saveRoundSummary(id, rows) {
-  await updateDoc(doc(db, 'rounds', id), { summary: rows.map((r) => [r.name, r.total, r.rank]) });
+  await updateDoc(doc(db, 'rounds', id), { summary: rows.map((r) => ({ n: r.name, t: r.total, r: r.rank })) });
 }
 
 async function writePlayers(roundId, players) {
