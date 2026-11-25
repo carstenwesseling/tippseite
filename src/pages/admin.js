@@ -11,6 +11,7 @@ import { buildTable } from '../scoring.js';
 import { resolveResults } from './table.js';
 import { buildTablePdf } from '../pdf.js';
 import { esc, $ } from '../util.js';
+import { backfillSummaries } from '../overview.js';
 
 /** Zugriffsschutz für alle Verwaltungsseiten. Gibt true zurück, wenn der Nutzer Admin ist. */
 let ownerView = false; // Besitzer sieht zusätzlich "Benutzer" und "Alle Daten löschen"
@@ -62,6 +63,7 @@ export async function renderAdmin(app, session, flash = '') {
       ${rounds.map((r) => `<div class="row${r.liga === 2 ? ' liga2' : ''}"><a href="#/runde/${esc(r.id)}">${esc(roundLabel(r))} · ${r.playerCount} Mitspieler</a>
         <button data-del="${esc(r.id)}">Löschen</button></div>`).join('') || '<span class="muted">Keine</span>'}
       <div class="row"><button id="refresh">Ergebnisse von OpenLigaDB jetzt aktualisieren</button><span id="refmsg" class="muted"></span></div>
+      <div class="row"><button id="summ" title="Speichert die Tabellen abgeschlossener Halbserien, damit die Bestenliste schnell lädt.">Tabellen für die Bestenliste berechnen</button><span id="summmsg" class="muted"></span></div>
     </div>
     ${session.isOwner ? `<div class="card"><h3>Alle Daten löschen</h3>
       <p class="muted">Löscht alle Halbserien samt Mitspielern, alle Mitglieder und die zwischengespeicherten Ergebnisse. Admin-Zugänge bleiben bestehen.
@@ -428,6 +430,13 @@ export async function renderAdmin(app, session, flash = '') {
     if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: pdf.title }); return; }
     download(pdf); // Browser ohne Datei-Teilen (meist Desktop): PDF laden, per Hand in WhatsApp anhängen
     $('#pdfmsg').textContent = 'Dieser Browser kann nicht direkt teilen: PDF wurde geladen, bitte in WhatsApp anhängen.';
+  });
+  $('#summ').addEventListener('click', async () => {
+    $('#summmsg').textContent = 'Berechne …';
+    try {
+      const r = await backfillSummaries(({ done, total }) => { $('#summmsg').textContent = `Berechne … ${done}/${total}`; });
+      $('#summmsg').textContent = `${r.saved} Tabellen gespeichert, ${r.existing} waren schon vorhanden, ${r.open} Halbserien noch nicht abgeschlossen.`;
+    } catch (err) { $('#summmsg').textContent = err.message; }
   });
   $('#refresh').addEventListener('click', async () => {
     $('#refmsg').textContent = 'Lade …';

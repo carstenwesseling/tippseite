@@ -1,5 +1,5 @@
 import { cached } from './cache.js';
-import { getRound, getSeasonMatches, memberNames } from './db.js';
+import { getSeasonMatches, getRound, listRounds, memberNames, saveRoundSummary } from './db.js';
 import { resolveResults } from './pages/table.js';
 import { buildTable } from './scoring.js';
 import { normName, samePerson } from './halbserie.js';
@@ -27,4 +27,33 @@ export async function computeOverview(rounds, { canWrite = false } = {}) {
 export function rowOfMember(member, table) {
   const names = new Set(memberNames(member).map((n) => normName(samePerson(n))));
   return table.find((r) => names.has(normName(r.name))) ?? null;
+}
+
+/**
+ * Berechnet die Tabelle einer Halbserie; `null`, solange sie nicht abgeschlossen ist (nicht alle Spiele beendet).
+ * @returns {Promise<Array<{name:string,total:number,rank:number}>|null>}
+ */
+export async function computeSummary(meta, { canWrite = false } = {}) {
+  const [round, api] = await Promise.all([getRoundCached(meta), getSeasonCached(meta.jahr, { canWrite })]);
+  if (!round) return null;
+  const { spieltage, results, matches } = resolveResults(round, api?.matches, { completeDaysOnly: true });
+  if (!matches.every((m) => m.finished)) return null;
+  return buildTable(round.players, results, spieltage);
+}
+
+/**
+ * Berechnet und speichert die Tabellen aller abgeschlossenen Halbserien, die noch keine haben (einmalige Nachberechnung).
+ * @returns {Promise<{saved:number, open:number, existing:number}>}
+ */
+export async function backfillSummaries(onProgress = () => {}) {
+  const rounds = await listRounds();
+  const todo = rounds.filter((r) => !r.summary);
+  let saved = 0;
+  let open = 0;
+  for (const meta of todo) {
+    const rows = await computeSummary(meta, { canWrite: true });
+    if (rows) { await saveRoundSummary(meta.id, rows); saved++; } else open++;
+    onProgress({ done: saved + open, total: todo.length });
+  }
+  return { saved, open, existing: rounds.length - todo.length };
 }

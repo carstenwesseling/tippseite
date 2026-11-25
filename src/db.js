@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, runTransaction,
+  collection, doc, deleteField, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase.js';
 import { clearCache } from './cache.js';
@@ -65,6 +65,14 @@ export async function saveRound({ jahr, typ, order, excelResults, players, kind,
   return ref.id;
 }
 
+/**
+ * Speichert die fertige Tabelle einer abgeschlossenen Halbserie (`summary`: [[Name, Punkte, Rang], …]) im Halbserien-Dokument.
+ * Die Bestenliste liest dann nur noch die Halbserien-Dokumente statt aller Spieler und Ergebnisse.
+ */
+export async function saveRoundSummary(id, rows) {
+  await updateDoc(doc(db, 'rounds', id), { summary: rows.map((r) => [r.name, r.total, r.rank]) });
+}
+
 async function writePlayers(roundId, players) {
   for (let i = 0; i < players.length; i += 400) {
     const batch = writeBatch(db);
@@ -85,6 +93,7 @@ async function writePlayers(roundId, players) {
 export async function addStatsToRound(roundId, rows, alias = {}) {
   clearCache();
   const snap = await getDocs(collection(db, 'rounds', roundId, 'players'));
+  await updateDoc(doc(db, 'rounds', roundId), { summary: deleteField() });
   const byName = new Map(snap.docs.map((d) => [normName(samePerson(d.data().name)), d.ref]));
   const ops = [];
   const unmatched = [];
@@ -116,7 +125,7 @@ export async function addPlayersToRound(roundId, { players, order, excelResults 
   if (!round.exists()) throw new Error('Halbserie nicht gefunden.');
   await writePlayers(roundId, players);
   const count = (await getDocs(collection(db, 'rounds', roundId, 'players'))).size;
-  const patch = { playerCount: count };
+  const patch = { playerCount: count, summary: deleteField() };
   const r = round.data();
   if (!r.order?.length && order?.length) patch.order = order;
   if (!r.excelResults?.length && excelResults?.length) patch.excelResults = excelResults;
