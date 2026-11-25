@@ -74,3 +74,24 @@ describe('Excel-Tippschein: Mailanhang und Upload', () => {
     expect(nameFromFilename(f)).toBe('Wesseling,C.');
   });
 });
+
+describe('Excel-Tippschein: Blattschutz', () => {
+  it('sperrt alles außer den Tippfeldern', async () => {
+    const { default: ExcelJS } = await import('exceljs');
+    const o = order();
+    const buf = await buildTipWorkbook({ title: 'Hinrunde 26/27', playerName: 'Test,T.', order: o, tips: {} });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const ws = wb.worksheets[0];
+    expect(ws.sheetProtection).toBeTruthy();
+    let unlocked = 0, lockedTipLike = 0;
+    ws.eachRow({ includeEmpty: true }, (row) => row.eachCell({ includeEmpty: true }, (c) => {
+      if (c.protection?.locked === false) unlocked++;
+      else if (typeof c.value === 'string' && c.value === 'Tipp') lockedTipLike++;
+    }));
+    expect(unlocked).toBe(o.length * 2); // je Spiel Tipp Heim + Tipp Gast
+    expect(lockedTipLike).toBeGreaterThan(0);
+    // Der Parser liest geschützte Dateien weiterhin
+    expect(parseWorkbook(new Uint8Array(buf)).players[0].matchCount).toBe(o.length);
+  });
+});
