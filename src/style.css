@@ -337,3 +337,18 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--ink); }
 @media (min-width: 760px) { .tp .t .full { display: inline; } .tp .t .short { display: none; } }
 .mailform .muted { font-size: 13px; }
 .tp .wd { padding-block: 6px; text-align: right; } .tp .wd .linkbtn { text-decoration: underline; color: var(--g-muted); } .tp .wd .linkbtn:disabled { opacity: .5; cursor: not-allowed; text-decoration: none; }
+
+/* Bestenliste: Zeitraum, Anzahl und Balkendiagramme */
+.bctl { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+.bctl select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.bcharts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.bcharts section { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+.bcharts h2 { margin: 0 0 6px; font: 700 17px/1.15 var(--display); text-transform: uppercase; letter-spacing: .04em; }
+.bcharts h2 small { font: 400 12.5px var(--text); text-transform: none; letter-spacing: 0; color: var(--muted); margin-left: 6px; }
+.hb { display: grid; gap: 3px; max-height: 520px; overflow: auto; }
+.hb-r { display: grid; grid-template-columns: minmax(70px, 34%) 1fr 48px; gap: 8px; align-items: center; font-size: 13px; }
+.hb-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--muted); }
+.hb-t { height: 14px; background: var(--pitch-soft); border-radius: 3px; overflow: hidden; }
+.hb-t i { display: block; height: 100%; background: var(--pitch); border-radius: 3px; }
+.hb-r b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.hb-r:hover .hb-n { color: var(--ink); }
