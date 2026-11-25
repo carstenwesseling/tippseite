@@ -9,6 +9,8 @@ export const hasTips = (round, p) => round.kind !== 'chronik' && Boolean(p?.tips
 
 export const spieleHref = (roundId, name, day) => `#/spiele/${encodeURIComponent(roundId)}/${encodeURIComponent(name)}/${day}`;
 
+// Handy: Kurzname, Desktop: voller Vereinsname (Umschaltung per CSS)
+const team = (short, full) => `<span class="full">${esc(full)}</span><span class="short">${esc(short)}</span>`;
 const sc = (x) => (x ? `${x.h}:${x.g}` : '–');
 let lastDay = null; // zuletzt angesehener Einzel-Spieltag: dorthin führt der Schalter zurück
 
@@ -56,7 +58,7 @@ export async function renderSpiele(app, session, roundId, name, day) {
   const group = (g) => `<div class="sp-dh"><a href="${link(name, g.day)}" title="Nur diesen Spieltag ansehen">Spieltag ${g.day}</a>
       <span>${g.live ? 'läuft, vorläufig · ' : ''}${showAll && g.sum > 0 && g.sum === dayMax[g.day] ? '★ Tagesbester · ' : ''}<b>${g.sum}</b> Pkt</span></div>
     <div class="sp-ms"><div class="sp-mh" aria-hidden="true"><span style="text-align:right">Heim</span><span>Erg.</span><span style="text-align:left">Gast</span><span>Tipp</span><span>Pkt</span></div>
-    ${g.rows.map((r) => `<div class="sp-m p${r.pts ?? 'x'}"><span class="h">${esc(r.home)}</span><span class="res" aria-label="Ergebnis">${r.res ? sc(r.res) : '–'}</span><span class="a">${esc(r.away)}</span>
+    ${g.rows.map((r) => `<div class="sp-m p${r.pts ?? 'x'}"><span class="h" title="${esc(r.homeFull)}">${team(r.home, r.homeFull)}</span><span class="res" aria-label="Ergebnis">${r.res ? sc(r.res) : '–'}</span><span class="a" title="${esc(r.awayFull)}">${team(r.away, r.awayFull)}</span>
       <span class="sp-tip" aria-label="Tipp">${sc(r.tip)}</span>${pt(r)}</div>`).join('')}</div>`;
 
   app.innerHTML = `<div class="sp">

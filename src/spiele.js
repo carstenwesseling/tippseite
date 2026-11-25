@@ -1,6 +1,6 @@
 // Spiele hinter den Punkten: Tipp und echtes Ergebnis je Spiel, gruppiert nach Spieltag.
 import { scoreMatch } from './scoring.js';
-import { shortName } from './teams.js';
+import { shortName, officialName } from './teams.js';
 
 /**
  * @param {{order:Array<{key:string,home?:string,away?:string,block?:number}>}} round
@@ -22,6 +22,7 @@ export function gamesByDay(round, matches, results, tips) {
     const row = {
       key: o.key, i, kickoff: m?.kickoff ?? null,
       home: shortName(m?.home ?? o.home ?? kh), away: shortName(m?.away ?? o.away ?? ka),
+      homeFull: officialName(m?.home ?? o.home ?? kh), awayFull: officialName(m?.away ?? o.away ?? ka),
       res: r ? { h: r.h, g: r.g, live: Boolean(r.live) } : null,
       tip, pts: r ? scoreMatch(tip, r) : null,
     };
