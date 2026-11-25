@@ -63,6 +63,10 @@ const SHORT = {
   frankfurt: 'Frankfurt', augsburg: 'Augsburg', freiburg: 'Freiburg', koeln: 'Köln', mainz: 'Mainz',
   hamburg: 'Hamburg', gladbach: 'Gladbach', stuttgart: 'Stuttgart', union: 'Union', dortmund: 'Dortmund',
   stpauli: 'St. Pauli', wolfsburg: 'Wolfsburg', heidenheim: 'Heidenheim', schalke: 'Schalke', hertha: 'Hertha',
-  bochum: 'Bochum', darmstadt: 'Darmstadt', kiel: 'Kiel',
+  bochum: 'Bochum', darmstadt: 'Darmstadt', kiel: 'Kiel', paderborn: 'Paderborn', elversberg: 'Elversberg',
 };
 export const shortName = (name) => SHORT[teamKey(name)] ?? String(name).trim();
+
+// Offizielle Vereinsnamen (Tippformular am Desktop); unbekannte Vereine behalten den Namen aus der Spielplan-Quelle.
+const OFFICIAL = new Map(BUNDESLIGA_FALLBACK.map((n) => [teamKey(n), n]));
+export const officialName = (name) => OFFICIAL.get(teamKey(name)) ?? String(name).trim();

@@ -321,6 +321,11 @@ export async function tippingToRound(t) {
 }
 
 /** Excel-Tippschein per Mail: Dokument für die Firebase-Erweiterung "Trigger Email from Firestore" (Sammlung `mail`). */
+/** Mitspieler trägt seine Adresse selbst ein: setzt "Excel per Mail" und hinterlegt die Adresse (Verwaltung → Tippen). */
+export async function registerExcelMail(id, email) {
+  await setDoc(doc(db, 'tipperMail', id), { email });
+  await updateDoc(doc(db, 'tippers', id), { sendExcel: true });
+}
 export const queueExcelMail = ({ tipperId: id, to, subject, text, filename, base64 }) =>
   addDoc(collection(db, 'mail'), {
     tipperId: id, to: [to],

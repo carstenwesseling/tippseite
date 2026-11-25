@@ -77,9 +77,18 @@ service cloud.firestore {
     match /tippers/{id} {
       allow read: if true;
       allow write: if isAdmin();
+      // Beim Eintragen der Mailadresse im Tippformular darf nur "Excel per Mail" auf true gesetzt werden.
+      allow update: if resource.data.aktiv == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sendExcel'])
+        && request.resource.data.sendExcel == true;
     }
     match /tipperMail/{id} {
       allow read, write: if isAdmin();
+      // Ein aktiver Mitspieler trägt im Tippformular seine eigene Adresse ein ("Übertragen").
+      allow create, update: if request.resource.data.keys().hasOnly(['email'])
+        && request.resource.data.email is string && request.resource.data.email.size() < 120
+        && request.resource.data.email.matches('^\\S+@\\S+\\.\\S+$')
+        && get(/databases/$(database)/documents/tippers/$(id)).data.aktiv == true;
     }
 
     // Tipprunde: öffentlich lesbar. Tipps einzelner Mitglieder darf lesen, wer die Dokument-ID (= Name) kennt;

@@ -331,3 +331,8 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--ink); }
   #user { order: 2; margin-left: auto; }
   nav { order: 3; flex: 0 0 100%; margin-left: 0; padding-bottom: 4px; }
 }
+
+/* Tippformular: am Handy nur die Stadt, am Desktop (genug Platz) der offizielle Vereinsname */
+.tp .t .full { display: none; }
+@media (min-width: 760px) { .tp .t .full { display: inline; } .tp .t .short { display: none; } }
+.mailform .muted { font-size: 13px; }
