@@ -1,9 +1,10 @@
 // Verwaltung, Reiter "Tippen": Tipprunde (kommende Halbserie) und Tipper (Haken "tippt mit", Excel per Mail, neue Mitglieder).
 import {
-  listTippers, listTipperMails, saveTippers, unlockTips, tipperId, listRounds, getRound, ensureMembers,
+  listTippers, listTipperMails, listMembers, saveTippers, unlockTips, tipperId, listRounds, getRound, ensureMembers,
   getTipping, openTipping, setTippingOpen, listTips, deleteTipping, tippingToRound,
 } from '../db.js';
 import { adminGate, adminNav } from './admin.js';
+import { normName } from '../halbserie.js';
 import { esc, $ } from '../util.js';
 
 const byName = (a, b) => a.name.localeCompare(b.name, 'de');
@@ -22,7 +23,7 @@ export async function renderTipMembers(host) {
 
 async function renderMembersInner(host) {
   host.innerHTML = '<div class="card"><h3>Mitglieder</h3><p class="muted">Lade …</p></div>';
-  const [saved, mails, rounds, tipping] = await Promise.all([listTippers(), listTipperMails().catch(() => ({})), listRounds(), getTipping().catch(() => null)]);
+  const [saved, mails, rounds, tipping, allMembers] = await Promise.all([listTippers(), listTipperMails().catch(() => ({})), listRounds(), getTipping().catch(() => null), listMembers().catch(() => [])]);
   // Wer hat in der aktuellsten Halbserie mitgetippt? -> Haken vorbelegt
   const latest = rounds.length ? await getRound(rounds[0].id) : null;
   const current = new Set((latest?.players ?? []).map((p) => tipperId(p.name)));
@@ -42,6 +43,7 @@ async function renderMembersInner(host) {
   host.innerHTML = `<div class="card"><h3>Mitglieder der neuen Halbserie</h3>
     <p class="muted">Haken = tippt mit und erscheint in der Namensliste des Tippformulars. Vorbelegt sind alle, die in „${esc(latest?.title ?? 'der letzten Halbserie')}“ mitgetippt haben.
       „Excel per Mail“ = der Tippschein kann nach dem Abschicken als Excel an die hinterlegte Adresse gehen.</p>
+    <select id="m-pick" aria-label="Mitglied aus der Mitgliederverwaltung hinzufügen" style="margin:0 0 10px"></select>
     <form class="add" id="m-add" autocomplete="off"><input id="m-name" placeholder="Neues Mitglied, z. B. Sabine" maxlength="30" aria-label="Name des neuen Mitglieds"><button class="primary" type="submit">Hinzufügen</button></form>
     <div class="tools"><button type="button" id="m-cur">Nur letzte Mitspieler</button><button type="button" id="m-all">Alle</button><button type="button" id="m-none">Keine</button>
       <span class="count" style="margin-left:auto"><b id="m-n">0</b> von <span id="m-t">0</span> tippen mit</span></div>
@@ -65,6 +67,11 @@ async function renderMembersInner(host) {
         ${m.aktiv ? `<div class="mx gut"><label class="chk"><input type="checkbox" data-x="${i}" ${m.sendExcel ? 'checked' : ''}> Excel per Mail</label>
           ${m.sendExcel ? `<input type="email" data-e="${i}" value="${esc(m.email)}" placeholder="E-Mail-Adresse" inputmode="email" aria-label="E-Mail-Adresse von ${esc(m.name)}">` : ''}</div>` : ''}</li>`;
     }).join('');
+    // Dropdown: Mitglieder der Verwaltung, die noch nicht in dieser Liste stehen
+    const have = new Set(rows.map((r) => normName(r.name)));
+    const rest = allMembers.filter((m) => !have.has(normName(m.name)));
+    $('#m-pick').innerHTML = `<option value="">${rest.length ? 'Mitglied aus der Verwaltung wählen …' : 'Alle Mitglieder sind in der Liste'}</option>${rest.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('')}`;
+    $('#m-pick').disabled = !rest.length;
     $('#m-n').textContent = rows.filter((m) => m.aktiv).length; $('#m-t').textContent = rows.length;
   }
 
@@ -91,6 +98,13 @@ async function renderMembersInner(host) {
     if (m.stored) removed.push(m.id);
     rows.splice(i, 1); draw();
     say(`${m.name} entfernt. Mit „Mitglieder speichern“ übernehmen.`);
+  });
+  $('#m-pick').addEventListener('change', (e) => {
+    const name = e.target.value; if (!name) return;
+    const id = tipperId(name);
+    const gone = removed.indexOf(id); if (gone >= 0) removed.splice(gone, 1);
+    rows.push({ id, name, aktiv: true, sendExcel: false, email: '', aktuell: false, stored: false });
+    draw(); say(`${name} hinzugefügt. Mit „Mitglieder speichern“ übernehmen.`);
   });
   $('#m-add').addEventListener('submit', (e) => {
     e.preventDefault();

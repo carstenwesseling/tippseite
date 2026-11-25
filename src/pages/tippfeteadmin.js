@@ -1,5 +1,6 @@
 // Verwaltung, Reiter "Tippfete": Datum, Uhrzeit und Ort der nächsten Tippfete.
-import { getTippfete, saveTippfete, listVotes, resetVotes } from '../db.js';
+import { getTippfete, saveTippfete, listVotes, resetVotes, currentMembers } from '../db.js';
+import { normName } from '../halbserie.js';
 import { adminGate, adminNav } from './admin.js';
 import { esc, $ } from '../util.js';
 
@@ -8,7 +9,10 @@ export async function renderTippfeteAdmin(app, session, flash = '') {
   const t = (await getTippfete().catch(() => null)) ?? {};
   const votes = (await listVotes().catch(() => [])).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const kommt = votes.filter((v) => v.antwort === 'k'), kommtNicht = votes.filter((v) => v.antwort === 'n');
-  const list = (arr) => (arr.length ? `<ul>${arr.map((v) => `<li>${esc(v.name)}</li>`).join('')}</ul>` : '<p class="muted">Noch niemand.</p>');
+  // Noch nicht abgestimmt: alle Mitspieler der aktuellen Halbserie ohne Stimme.
+  const voted = new Set(votes.map((v) => normName(v.name)));
+  const offen = (await currentMembers().catch(() => [])).filter((n) => !voted.has(normName(n)));
+  const list = (arr) => (arr.length ? `<ul>${arr.map((v) => `<li>${esc(v.name ?? v)}</li>`).join('')}</ul>` : '<p class="muted">Noch niemand.</p>');
   app.innerHTML = `${adminNav('tippfete')}${flash}
     <div class="card"><h3>Nächste Tippfete</h3>
       <p class="muted">Wird auf der Seite „Nächste Tippfete“ angezeigt. Alle Felder leeren und speichern entfernt den Termin.</p>
@@ -19,7 +23,7 @@ export async function renderTippfeteAdmin(app, session, flash = '') {
       </div>
       <div class="row"><button id="tf-save">Speichern</button><span id="tf-msg"></span></div></div>
     <div class="card"><h3>Umfrage</h3>
-      <div class="tflists"><div><h4>Kommt (${kommt.length})</h4>${list(kommt)}</div><div class="nn"><h4>Kommt nicht (${kommtNicht.length})</h4>${list(kommtNicht)}</div></div>
+      <div class="tflists"><div><h4>Kommt (${kommt.length})</h4>${list(kommt)}</div><div class="nn"><h4>Kommt nicht (${kommtNicht.length})</h4>${list(kommtNicht)}</div><div class="no"><h4>Noch nicht abgestimmt (${offen.length})</h4>${list(offen)}</div></div>
       <div class="row"><button id="tf-reset"${votes.length ? '' : ' disabled'}>Umfrage zurücksetzen</button><span id="tf-rmsg"></span></div>
       <p class="muted">Zurücksetzen löscht alle Antworten, z. B. vor der nächsten Tippfete.</p></div>`;
   $('#tf-reset').addEventListener('click', async () => {
