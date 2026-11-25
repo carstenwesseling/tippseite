@@ -1,5 +1,5 @@
-import { getTipping, listTippers, getTips, saveTips, queueExcelMail, registerExcelMail } from '../db.js';
-import { buildTipWorkbook, tipFileName, toBase64 } from '../tipsheet.js';
+import { getTipping, listTippers, getTips, saveTips, registerExcelMail } from '../db.js';
+import { buildTipWorkbook, tipFileName } from '../tipsheet.js';
 import { shortName, officialName } from '../teams.js';
 import { esc, $ } from '../util.js';
 
@@ -68,7 +68,7 @@ export async function renderTippen(app, session) {
         <div class="mailform" id="mailform" hidden>
           <input type="email" id="mailto" inputmode="email" autocomplete="email" placeholder="Deine E-Mail-Adresse eintippen" aria-label="E-Mail-Adresse für den Excel-Tippschein">
           <button type="button" class="primary" id="mailgo">Übertragen</button>
-          <div class="muted">Die Adresse wird für dich hinterlegt („Excel per Mail“) und der aktuelle Tippzettel als Excel-Datei dorthin geschickt.</div>
+          <div class="muted">Die Adresse wird für dich in der Verwaltung hinterlegt („Excel per Mail“). Es wird keine Mail verschickt.</div>
         </div>
         <div class="muted" id="mailnote"></div>
       </div>
@@ -94,7 +94,7 @@ export async function renderTippen(app, session) {
     $('#dl').disabled = !who;
     const m = member();
     $('#mailform').hidden = !m;
-    $('#mailnote').textContent = m ? '' : 'Wähle oben deinen Namen. Dann kannst du hier deine E-Mail-Adresse eintragen und den Tippzettel als Excel-Datei per Mail bekommen.';
+    $('#mailnote').textContent = m ? '' : 'Wähle oben deinen Namen. Dann kannst du hier deine E-Mail-Adresse hinterlegen.';
     if (m && !$('#mailto').value) $('#mailto').value = lget(K_MAIL(who)) || '';
   }
 
@@ -167,7 +167,7 @@ export async function renderTippen(app, session) {
   }
   app.querySelectorAll('.send').forEach((b) => b.addEventListener('click', submit));
 
-  // Mailadresse übertragen: Adresse beim Mitspieler hinterlegen ("Excel per Mail") und den aktuellen Tippzettel dorthin schicken.
+  // Mailadresse übertragen: nur beim Mitspieler hinterlegen (Verwaltung → Tippen, Haken "Excel per Mail"); es wird keine Mail verschickt.
   $('#mailgo').addEventListener('click', async () => {
     const m = member(); if (!m) return;
     const to = $('#mailto').value.trim();
@@ -180,16 +180,7 @@ export async function renderTippen(app, session) {
       msg(`<span class="warnline">Die Adresse konnte nicht hinterlegt werden${denied(e) ? ' (Firestore-Regeln nicht aktuell)' : ''}: ${esc(e.message)}</span>`);
       go.disabled = false; return;
     }
-    try {
-      await queueExcelMail({
-        tipperId: who, to, subject: 'Dein aktueller Tippzettel',
-        text: `Hallo ${m.name},\n\nanbei dein aktueller Tippzettel für ${tipping.title} als Excel-Datei.\n\nViel Erfolg!`,
-        filename: tipFileName(tipping.title, m.name), base64: toBase64(await sheet()),
-      });
-      msg(`<span class="okline">Adresse hinterlegt. Der Tippzettel geht an ${esc(to)}.</span>`);
-    } catch (e) {
-      msg(`<span class="warnline">Die Adresse ist hinterlegt, die Mail konnte aber nicht gesendet werden (Mailversand nicht eingerichtet?): ${esc(e.message)}</span>`);
-    }
+    msg(`<span class="okline">Adresse ${esc(to)} gespeichert.</span>`);
     go.disabled = false;
   });
   load();
