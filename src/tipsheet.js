@@ -115,8 +115,9 @@ export async function buildTipWorkbook({ title, playerName, order, tips = {} }) 
   return wb.xlsx.writeBuffer();
 }
 
+// "26/27" wird zu "26-27", damit der Upload Saison und Hin-/Rückrunde aus dem Dateinamen erkennt.
 export const tipFileName = (title, playerName) =>
-  `Tippschein ${title} ${playerName}`.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() + '.xlsx';
+  `Tippschein ${title.replace(/\//g, '-')} ${playerName}`.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() + '.xlsx';
 
 /** ArrayBuffer -> Base64 (für den Mailversand-Anhang). */
 export function toBase64(buf) {
