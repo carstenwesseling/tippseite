@@ -42,7 +42,7 @@ export async function renderAdmin(app, session, flash = '') {
   app.innerHTML = `
     ${adminNav('upload')}
     ${flash}
-    <div class="row"><button class="primary" id="pdf"${rounds.length ? '' : ' disabled'}>Aktuelle Halbserie als PDF</button><span id="pdfmsg" class="muted"></span></div>
+    <div class="row"><button class="primary" id="pdf"${rounds.length ? '' : ' disabled'}>Aktuelle Halbserie als PDF</button><button class="primary" id="pdfshare"${rounds.length ? '' : ' disabled'}>PDF teilen (WhatsApp)</button><span id="pdfmsg" class="muted"></span></div>
     <div class="card"><h3>Excel hochladen</h3>
       <p class="muted">Eine ganze Tippdatei <em>oder</em> einzelne Arbeitsblätter (je Mitspieler eine Datei, auch mehrere auf einmal).
         Saison und Hin-/Rückrunde werden aus dem Dateinamen erkannt (z. B. „Rückrunde 2526“, „22-23 H“) und können geändert werden.</p>
@@ -398,20 +398,32 @@ export async function renderAdmin(app, session, flash = '') {
   });
   }
 
-  $('#pdf').addEventListener('click', async () => {
-    const r = rounds[0]; // aktuellste Halbserie
+  // PDF der aktuellsten Halbserie: Download oder Teilen (auf dem Handy z. B. an eine WhatsApp-Gruppe).
+  const makePdf = async () => {
+    const r = rounds[0];
+    const [round, api] = await Promise.all([getRound(r.id), getSeasonMatches(r.jahr, { canWrite: true })]);
+    const { spieltage, results } = resolveResults(round, api.matches);
+    const blob = await buildTablePdf(buildTable(round.players, results, spieltage), spieltage, roundLabel(r));
+    return { blob, name: `Tabelle_${roundCode(r)}.pdf`, title: roundLabel(r) };
+  };
+  const download = ({ blob, name }) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  };
+  const pdfAction = (btn, fn) => btn.addEventListener('click', async () => {
     $('#pdfmsg').textContent = 'Erzeuge PDF …';
-    try {
-      const [round, api] = await Promise.all([getRound(r.id), getSeasonMatches(r.jahr, { canWrite: true })]);
-      const { spieltage, results } = resolveResults(round, api.matches);
-      const blob = await buildTablePdf(buildTable(round.players, results, spieltage), spieltage, roundLabel(r));
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `Tabelle_${roundCode(r)}.pdf`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-      $('#pdfmsg').textContent = '';
-    } catch (e) { $('#pdfmsg').innerHTML = `<span class="msg err">${esc(e.message)}</span>`; }
+    try { await fn(await makePdf()); $('#pdfmsg').textContent = ''; }
+    catch (e) { $('#pdfmsg').innerHTML = e.name === 'AbortError' ? '' : `<span class="msg err">${esc(e.message)}</span>`; }
+  });
+  pdfAction($('#pdf'), async (pdf) => download(pdf));
+  pdfAction($('#pdfshare'), async (pdf) => {
+    const file = new File([pdf.blob], pdf.name, { type: 'application/pdf' });
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: pdf.title }); return; }
+    download(pdf); // Browser ohne Datei-Teilen (meist Desktop): PDF laden, per Hand in WhatsApp anhängen
+    $('#pdfmsg').textContent = 'Dieser Browser kann nicht direkt teilen: PDF wurde geladen, bitte in WhatsApp anhängen.';
   });
   $('#refresh').addEventListener('click', async () => {
     $('#refmsg').textContent = 'Lade …';
