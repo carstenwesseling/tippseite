@@ -1,6 +1,6 @@
-# Tippspiel
+# Bundesliga-Tipp-Werries
 
-Bundesliga-Tippspiel: Excel-Tipps je Halbserie hochladen, Tabelle mit echten Ergebnissen (OpenLigaDB) auswerten.
+Bundesliga-Tipp-Werries: Excel-Tipps je Halbserie hochladen, Tabelle mit echten Ergebnissen (OpenLigaDB) auswerten.
 Punkte: exaktes Ergebnis 2, richtige Tendenz 1.
 
 ## Setup
