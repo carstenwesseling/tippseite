@@ -6,6 +6,12 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
     }
 
+    // Besitzer = Admin ohne `delegate`-Flag; nur er verwaltet den zusätzlichen Admin.
+    function isOwner() {
+      return isAdmin()
+        && !get(/databases/$(database)/documents/admins/$(request.auth.token.email.lower())).data.get('delegate', false);
+    }
+
     // Tabellen, Halbserien und Ergebnisse sind öffentlich lesbar, schreiben nur Admins.
     match /rounds/{id} {
       allow read: if true;
@@ -22,7 +28,12 @@ service cloud.firestore {
     // Einstellungen (z. B. Termin der nächsten Tippfete): öffentlich lesbar, schreiben nur Admins.
     match /settings/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() && id != 'delegate';
+    }
+    // Name des zusätzlichen Admins (erscheint beim Anmelden): öffentlich lesbar, ändern nur der Besitzer.
+    match /settings/delegate {
+      allow read: if true;
+      allow write: if isOwner();
     }
     // Umfrage zur Tippfete: öffentlich lesbar sind nur die Anzahlen (settings/tippfeteCounts). Eine Stimme darf neu angelegt oder
     // geändert (k <-> n) werden, und nur zusammen mit der passenden Anpassung am Zähler. Namen/Stimmen auflisten: nur Admins.
@@ -103,10 +114,11 @@ service cloud.firestore {
            == request.resource.data.to[0].lower();
     }
 
-    // Jeder Angemeldete darf nur den eigenen Admin-Eintrag lesen; Einträge legt man in der Firebase-Konsole an.
+    // Jeder Angemeldete darf nur den eigenen Admin-Eintrag lesen; den Besitzer legt man in der Firebase-Konsole an,
+    // den zusätzlichen Admin legt der Besitzer unter Verwaltung → Benutzer an.
     match /admins/{email} {
-      allow get: if request.auth != null && request.auth.token.email.lower() == email;
-      allow list, write: if false;
+      allow get: if request.auth != null && (request.auth.token.email.lower() == email || isOwner());
+      allow list, write: if isOwner();
     }
   }
 }

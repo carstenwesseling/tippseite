@@ -10,7 +10,9 @@ import { detectHalbserie, nameFromFilename, roundCode, roundLabel, sameHalbserie
 import { esc, $ } from '../util.js';
 
 /** Zugriffsschutz für alle Verwaltungsseiten. Gibt true zurück, wenn der Nutzer Admin ist. */
+let ownerView = false; // Besitzer sieht zusätzlich "Benutzer" und "Alle Daten löschen"
 export function adminGate(app, session) {
+  ownerView = Boolean(session.isOwner);
   if (!session.user) { app.innerHTML = '<div class="msg warn">Bitte oben rechts mit Google anmelden.</div>'; return false; }
   if (!session.isAdmin) {
     app.innerHTML = `<div class="msg err">${esc(session.user.email)} ist nicht als Admin freigeschaltet.
@@ -26,6 +28,7 @@ export const adminNav = (active) => `<h1>Verwaltung</h1>
   <a href="#/admin/mitglieder" class="${active === 'members' ? 'active' : ''}">Mitglieder</a>
   <a href="#/admin/tippen" class="${active === 'tippen' ? 'active' : ''}">Tippen</a>
   <a href="#/admin/tippfete" class="${active === 'tippfete' ? 'active' : ''}">Tippfete</a>
+  ${ownerView ? `<a href="#/admin/benutzer" class="${active === 'benutzer' ? 'active' : ''}">Benutzer</a>` : ''}
   <button class="linkbtn" data-logout>Abmelden</button></nav>`;
 
 export async function renderAdmin(app, session, flash = '') {
@@ -56,12 +59,12 @@ export async function renderAdmin(app, session, flash = '') {
         <button data-del="${esc(r.id)}">Löschen</button></div>`).join('') || '<span class="muted">Keine</span>'}
       <div class="row"><button id="refresh">Ergebnisse von OpenLigaDB jetzt aktualisieren</button><span id="refmsg" class="muted"></span></div>
     </div>
-    <div class="card"><h3>Alle Daten löschen</h3>
+    ${session.isOwner ? `<div class="card"><h3>Alle Daten löschen</h3>
       <p class="muted">Löscht alle Halbserien samt Mitspielern, alle Mitglieder und die zwischengespeicherten Ergebnisse. Admin-Zugänge bleiben bestehen.
         Das kann nicht rückgängig gemacht werden.</p>
       <div class="row"><label>Zur Bestätigung <strong>LÖSCHEN</strong> eingeben <input id="wipeconfirm" autocomplete="off" style="width:8rem" /></label>
         <button id="wipe" disabled>Alle Daten löschen</button><span id="wipemsg"></span></div>
-    </div>`;
+    </div>` : ''}`;
 
   let parsed = null;
   const preview = $('#preview');
@@ -375,6 +378,7 @@ export async function renderAdmin(app, session, flash = '') {
     renderAdmin(app, session);
   }));
 
+  if ($('#wipe')) {
   $('#wipeconfirm').addEventListener('input', () => { $('#wipe').disabled = $('#wipeconfirm').value.trim() !== 'LÖSCHEN'; });
   $('#wipe').addEventListener('click', async () => {
     if (!confirm('Wirklich ALLE Daten (Halbserien, Mitspieler, Mitglieder, Ergebnisse) unwiderruflich löschen?')) return;
@@ -388,6 +392,7 @@ export async function renderAdmin(app, session, flash = '') {
       $('#wipe').disabled = false;
     }
   });
+  }
 
   $('#refresh').addEventListener('click', async () => {
     $('#refmsg').textContent = 'Lade …';

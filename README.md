@@ -8,6 +8,7 @@ Punkte: exaktes Ergebnis 2, richtige Tendenz 1.
 2. `cp .env.example .env` und Werte der Web-App eintragen.
 3. Regeln deployen: `npx firebase-tools deploy --only firestore:rules`.
 4. In Firestore Dokument `admins/<deine-google-mail-kleingeschrieben>` anlegen (beliebiger Inhalt).
+   Optional für einen zweiten Admin (Name + 4-stellige PIN, Verwaltung → Benutzer): in der Firebase-Konsole unter Authentication die Anmeldemethode „E-Mail/Passwort“ aktivieren und die Regeln `firestore.rules` neu veröffentlichen.
 5. `npm install && npm run dev`.
 
 ## Tipprunde, Mitglieder und Excel-Tippschein
