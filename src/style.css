@@ -369,8 +369,6 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--ink); }
 .sp-hero .what { grid-column: 1; color: var(--muted); font-size: 14px; }
 .sp-hero .big { grid-row: 1 / span 2; grid-column: 2; text-align: right; font: 700 64px/.85 var(--display); color: var(--pitch); }
 .sp-hero .big small { display: block; margin-top: 4px; font: 500 12px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.sp-formula { margin: 0 0 12px; padding: 8px 12px; background: var(--pitch-soft); border-radius: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
-.sp-formula b { font-weight: 600; }
 .sp-steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 34px; margin-bottom: 12px; }
 .sp-steps .grp { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
 .sp-steps .grp a, .sp-steps .grp span { padding: 6px 11px; font-size: 13px; font-weight: 500; }

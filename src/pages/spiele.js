@@ -40,7 +40,6 @@ export async function renderSpiele(app, session, roundId, name, day) {
   }
   if (!showAll) lastDay = dayNo;
   const sum = groups.reduce((a, g) => a + g.sum, 0);
-  const cnt = groups.reduce((a, g) => ({ z: a.z + g.z, e: a.e + g.e, n: a.n + g.n }), { z: 0, e: 0, n: 0 });
   const live = groups.some((g) => g.live);
   const best = !showAll && groups[0].sum > 0 && groups[0].sum === dayMax[dayNo];
 
@@ -65,7 +64,6 @@ export async function renderSpiele(app, session, roundId, name, day) {
     <div class="sp-hero"><div class="who"><h2>${esc(name)}</h2><span class="rank" title="Platz in der Tabelle">Platz ${row.rank}</span></div>
       <div class="what">${showAll ? `Alle bisher gespielten Spieltage (${playedDays.length})` : `Spieltag ${dayNo}`}${best ? ' · ★ Tagesbester' : ''}</div>
       <div class="big">${sum}<small>Punkte</small></div></div>
-    <p class="sp-formula"><b>So entsteht der Wert:</b> ${cnt.z} × 2 + ${cnt.e} × 1 = ${cnt.z * 2 + cnt.e} <span class="muted">(${cnt.n} ${cnt.n === 1 ? 'Spiel' : 'Spiele'} ohne Punkte)</span></p>
     <div class="sp-steps">
       ${showAll ? '' : `<div class="grp">${prevD ? `<a href="${link(name, prevD)}" aria-label="Spieltag ${prevD}">‹</a>` : '<span class="na" aria-hidden="true">‹</span>'}<span class="mid">Spieltag ${dayNo}</span>${nextD ? `<a href="${link(name, nextD)}" aria-label="Spieltag ${nextD}">›</a>` : '<span class="na" aria-hidden="true">›</span>'}</div>`}
       <button type="button" class="sp-tgl" id="sp-all" aria-pressed="${showAll}"><i></i>alle gespielten Spieltage</button></div>
