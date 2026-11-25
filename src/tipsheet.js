@@ -97,6 +97,7 @@ export async function buildTipWorkbook({ title, playerName, order, tips = {} }) 
         const cell = set(off, Number.isFinite(v) ? v : null, { align: { horizontal: 'center' }, font: { bold: true, size: 10 } });
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SOFT } };
         cell.border = { top: LINE, bottom: LINE, left: LINE, right: LINE };
+        cell.protection = { locked: false }; // nur die grünen Tippfelder sind bearbeitbar
       }
       set(4, ':', { align: { horizontal: 'center' } });
     });
@@ -110,6 +111,9 @@ export async function buildTipWorkbook({ title, playerName, order, tips = {} }) 
       ws.getCell(lr + i, lc).value = text;
       ws.getCell(lr + i, lc).font = font({ bold, color: { argb: 'FF5D6B62' } });
     });
+
+  // Blattschutz (ohne Passwort): alles gesperrt außer den Tippfeldern; auswählen und markieren bleibt möglich
+  ws.protect('', { selectLockedCells: true, selectUnlockedCells: true });
 
   ws.pageSetup.printArea = `A1:${ws.getColumn(lastCol).letter}${HEAD_ROWS + rowsPerCol * blockHeight}`;
   return wb.xlsx.writeBuffer();
