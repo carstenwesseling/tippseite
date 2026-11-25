@@ -61,6 +61,7 @@ export async function renderAdmin(app, session, flash = '') {
     <div class="card"><h3>Vorhandene Halbserien</h3>
       ${rounds.map((r) => `<div class="row${r.liga === 2 ? ' liga2' : ''}"><a href="#/runde/${esc(r.id)}">${esc(roundLabel(r))} · ${r.playerCount} Mitspieler</a>
         <button data-del="${esc(r.id)}">Löschen</button></div>`).join('') || '<span class="muted">Keine</span>'}
+      <div class="row"><button id="pdf"${rounds.length ? '' : ' disabled'}>Aktuelle Halbserie als PDF</button><span id="pdfmsg" class="muted"></span></div>
       <div class="row"><button id="refresh">Ergebnisse von OpenLigaDB jetzt aktualisieren</button><span id="refmsg" class="muted"></span></div>
     </div>
     ${session.isOwner ? `<div class="card"><h3>Alle Daten löschen</h3>
