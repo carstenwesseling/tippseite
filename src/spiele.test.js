@@ -20,7 +20,7 @@ describe('gamesByDay', () => {
     expect(days[0]).toMatchObject({ sum: 3, z: 1, e: 1, n: 0, open: 1, live: false });
     expect(days[0].rows.map((r) => r.pts)).toEqual([2, 1, null]);
   });
-  it('kürzt Vereinsnamen', () => expect(days[0].rows[0]).toMatchObject({ home: 'Bayern', away: 'Leipzig' }));
+  it('liefert Kurz- und Vollnamen', () => expect(days[0].rows[0]).toMatchObject({ home: 'Bayern', away: 'Leipzig', homeFull: 'FC Bayern München', awayFull: 'RB Leipzig' }));
   it('fehlender Tipp gibt 0 Punkte', () => {
     const d = gamesByDay(round, [], results, {});
     expect(d[0]).toMatchObject({ sum: 0, n: 2 });
